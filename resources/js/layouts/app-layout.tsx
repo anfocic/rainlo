@@ -1,14 +1,22 @@
-import AppLayoutTemplate from '@/layouts/app/app-sidebar-layout';
+import { AppContent } from '@/components/app-content';
+import { AppShell } from '@/components/app-shell';
+import { AppSidebar } from '@/components/app-sidebar';
+import { AppSidebarHeader } from '@/components/app-sidebar-header';
 import { type BreadcrumbItem } from '@/types';
-import { type ReactNode } from 'react';
+import { type PropsWithChildren } from 'react';
 
-interface AppLayoutProps {
-    children: ReactNode;
-    breadcrumbs?: BreadcrumbItem[];
+export default function AppLayout({ children, breadcrumbs = [] }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
+    return (
+        <div className="min-h-screen bg-gradient-page">
+            <AppShell variant="sidebar">
+                <AppSidebar />
+                <AppContent variant="sidebar" className="overflow-x-hidden">
+                    <AppSidebarHeader breadcrumbs={breadcrumbs} />
+                    <div className="p-6">
+                        {children}
+                    </div>
+                </AppContent>
+            </AppShell>
+        </div>
+    );
 }
-
-export default ({ children, breadcrumbs, ...props }: AppLayoutProps) => (
-    <AppLayoutTemplate breadcrumbs={breadcrumbs} {...props}>
-        {children}
-    </AppLayoutTemplate>
-);
