@@ -1,8 +1,9 @@
 <?php
 
-use App\Http\Controllers\Auth\AuthenticatedSessionController;
-use App\Http\Controllers\Auth\RegisteredUserController;
-use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Expense\ExpenseController;
+use App\Http\Controllers\Income\IncomeController;
+use App\Http\Controllers\Profile\ProfileController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -17,20 +18,121 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// Public API routes
-Route::post('/register', [RegisteredUserController::class, 'store']);
-Route::post('/login', [AuthenticatedSessionController::class, 'store']);
+// Public Auth Routes
+Route::prefix('auth')->group(function () {
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+});
+
+// Alternative public auth routes (for backward compatibility)
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
 // Protected API routes
 Route::middleware('auth:sanctum')->group(function () {
+
+    // User info endpoint
     Route::get('/user', function (Request $request) {
-        return $request->user();
+        return response()->json([
+            'data' => $request->user()
+        ]);
     });
-    
-    Route::post('/logout', [AuthenticatedSessionController::class, 'destroy']);
-    
-    // Profile routes
-    Route::get('/profile', [ProfileController::class, 'show']);
-    Route::patch('/profile', [ProfileController::class, 'update']);
-    Route::delete('/profile', [ProfileController::class, 'destroy']);
+
+    // Auth routes that require authentication
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::prefix('auth')->group(function () {
+        Route::post('/logout', [AuthController::class, 'logout']);
+        Route::get('/me', function (Request $request) {
+            return response()->json(['data' => $request->user()]);
+        });
+    });
+
+    // Profile Management
+    Route::prefix('profile')->group(function () {
+        Route::get('/', [ProfileController::class, 'show']);
+        Route::patch('/', [ProfileController::class, 'update']);
+        Route::delete('/', [ProfileController::class, 'destroy']);
+    });
+
+    // Income Management
+    Route::prefix('incomes')->group(function () {
+        Route::get('/', [IncomeController::class, 'index']);           // GET /api/incomes
+        Route::post('/', [IncomeController::class, 'store']);          // POST /api/incomes
+        Route::get('/stats', [IncomeController::class, 'stats']);      // GET /api/incomes/stats
+        Route::post('/bulk-delete', [IncomeController::class, 'bulkDelete']); // POST /api/incomes/bulk-delete
+        Route::get('/{income}', [IncomeController::class, 'show']);    // GET /api/incomes/{id}
+        Route::put('/{income}', [IncomeController::class, 'update']);  // PUT /api/incomes/{id}
+        Route::patch('/{income}', [IncomeController::class, 'update']); // PATCH /api/incomes/{id}
+        Route::delete('/{income}', [IncomeController::class, 'destroy']); // DELETE /api/incomes/{id}
+    });
+
+    // Expense Management
+    Route::prefix('expenses')->group(function () {
+        Route::get('/', [ExpenseController::class, 'index']);          // GET /api/expenses
+        Route::post('/', [ExpenseController::class, 'store']);         // POST /api/expenses
+        Route::get('/stats', [ExpenseController::class, 'stats']);     // GET /api/expenses/stats
+        Route::post('/bulk-delete', [ExpenseController::class, 'bulkDelete']); // POST /api/expenses/bulk-delete
+        Route::get('/{expense}', [ExpenseController::class, 'show']);  // GET /api/expenses/{id}
+        Route::put('/{expense}', [ExpenseController::class, 'update']); // PUT /api/expenses/{id}
+        Route::patch('/{expense}', [ExpenseController::class, 'update']); // PATCH /api/expenses/{id}
+        Route::delete('/{expense}', [ExpenseController::class, 'destroy']); // DELETE /api/expenses/{id}
+    });
+
+    // Alternative resource routes (for Laravel conventions)
+    Route::apiResource('incomes', IncomeController::class);
+    Route::apiResource('expenses', ExpenseController::class);
+
+    // Dashboard/Analytics endpoints
+    Route::prefix('dashboard')->group(function () {
+        Route::get('/summary', function (Request $request) {
+            $userId = auth()->id();
+
+            return response()->json([
+                'data' => [
+                    'total_income' => \App\Models\Income::forUser($userId)->sum('amount'),
+                    'total_expenses' => \App\Models\Expense::forUser($userId)->sum('amount'),
+                    'net_income' => \App\Models\Income::forUser($userId)->sum('amount') -
+                                   \App\Models\Expense::forUser($userId)->sum('amount'),
+                    'income_count' => \App\Models\Income::forUser($userId)->count(),
+                    'expense_count' => \App\Models\Expense::forUser($userId)->count(),
+                    'business_income' => \App\Models\Income::forUser($userId)->where('is_business', true)->sum('amount'),
+                    'business_expenses' => \App\Models\Expense::forUser($userId)->where('is_business', true)->sum('amount'),
+                ]
+            ]);
+        });
+
+        Route::get('/recent-transactions', function (Request $request) {
+            $userId = auth()->id();
+            $limit = $request->get('limit', 10);
+
+            $recentIncomes = \App\Models\Income::forUser($userId)
+                ->latest('date')
+                ->limit($limit)
+                ->get()
+                ->map(function ($income) {
+                    return array_merge($income->toArray(), ['type' => 'income']);
+                });
+
+            $recentExpenses = \App\Models\Expense::forUser($userId)
+                ->latest('date')
+                ->limit($limit)
+                ->get()
+                ->map(function ($expense) {
+                    return array_merge($expense->toArray(), ['type' => 'expense']);
+                });
+
+            $transactions = $recentIncomes->concat($recentExpenses)
+                ->sortByDesc('date')
+                ->take($limit)
+                ->values();
+
+            return response()->json([
+                'data' => $transactions
+            ]);
+        });
+    });
 });
