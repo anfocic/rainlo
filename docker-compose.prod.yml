@@ -1,6 +1,10 @@
 services:
   app:
     image: ${IMAGE_TAG:-ghcr.io/anfocic/smartax:latest}
+    # For local testing, you can build from source instead:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     ports:
       - "8080:80"
     environment:

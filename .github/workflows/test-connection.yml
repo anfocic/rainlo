@@ -1,0 +1,23 @@
+name: Test Server Connection
+
+on:
+  workflow_dispatch:  # Manual trigger only
+
+jobs:
+  test-connection:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Test SSH Connection
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_KEY }}
+        port: ${{ secrets.PORT }}
+        script: |
+          echo "✅ SSH connection successful!"
+          whoami
+          pwd
+          docker --version
+          ls -la /opt/smartax/
