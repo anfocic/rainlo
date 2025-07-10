@@ -153,7 +153,7 @@ class AuthControllerTest extends TestCase
         ]);
 
         $response->assertStatus(200);
-        
+
         $token = $response->json('token');
         $this->assertNotNull($token);
         $this->assertIsString($token);
@@ -163,19 +163,14 @@ class AuthControllerTest extends TestCase
     {
         $user = User::factory()->create();
         $token = $user->createToken('test-token');
-        
-        Sanctum::actingAs($user, ['*'], $token->accessToken);
 
-        // Verify token exists
-        $this->assertDatabaseHas('personal_access_tokens', [
-            'tokenable_id' => $user->id,
-            'name' => 'test-token'
+        // Use the actual token for authentication
+        $response = $this->postJson('/api/logout', [], [
+            'Authorization' => 'Bearer ' . $token->plainTextToken
         ]);
 
-        $response = $this->postJson('/api/logout');
-
         $response->assertStatus(200);
-        
+
         // Verify token is deleted
         $this->assertDatabaseMissing('personal_access_tokens', [
             'tokenable_id' => $user->id,
