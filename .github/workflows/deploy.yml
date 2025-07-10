@@ -13,7 +13,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     services:
       mysql:
         image: mysql:8.0
@@ -64,11 +64,11 @@ jobs:
     permissions:
       contents: read
       packages: write
-    
+
     outputs:
       image: ${{ steps.image.outputs.image }}
       digest: ${{ steps.build.outputs.digest }}
-    
+
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -110,7 +110,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master'
     environment: production
-    
+
     steps:
     - name: Deploy to home server
       uses: appleboy/ssh-action@v1.0.3
@@ -120,30 +120,31 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         port: ${{ secrets.PORT }}
         timeout: 300s
-        command_timeout: 60s        script: |
+        command_timeout: 60s
+        script: |
           # Navigate to deployment directory
           cd /opt/smartax
-          
+
           # Pull latest image
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           docker pull ${{ needs.build-and-push.outputs.image }}
-          
+
           # Update docker-compose to use new image
           export IMAGE_TAG=${{ needs.build-and-push.outputs.image }}
-          
+
           # Stop current containers
           docker-compose -f docker-compose.prod.yml down || true
-          
+
           # Start with new image
           docker-compose -f docker-compose.prod.yml up -d
-          
+
           # Wait for services to be ready
           sleep 30
-          
+
           # Run migrations
           docker-compose -f docker-compose.prod.yml exec -T app php artisan migrate --force
-          
+
           # Health check
           curl -f http://localhost:8080/up || exit 1
-          
+
           echo "✅ Deployment completed successfully!"
