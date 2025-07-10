@@ -84,14 +84,14 @@ class ComprehensiveTestDataSeeder extends Seeder
             Income::create([
                 'user_id' => $user->id,
                 'amount' => rand(2000, 8000),
-                'description' => fake()->randomElement($projects) . ' for ' . fake()->randomElement($clients),
+                'description' => $projects[array_rand($projects)] . ' for ' . $clients[array_rand($clients)],
                 'category' => 'Freelance',
-                'source' => fake()->randomElement($clients),
+                'source' => $clients[array_rand($clients)],
                 'date' => fake()->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
                 'is_business' => true,
                 'recurring' => false,
                 'tax_category' => 'freelance',
-                'notes' => fake()->optional(0.3)->sentence(),
+                'notes' => rand(1, 10) <= 3 ? fake()->sentence() : null,
             ]);
         }
 
