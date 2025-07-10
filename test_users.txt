@@ -1,0 +1,4 @@
+ john@freelancer.com (password: password)
+- sarah@employee.com (password: password)
+- mike@business.com (password: password)
+- lisa@investor.com (password: password)

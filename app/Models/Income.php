@@ -18,6 +18,9 @@ class Income extends Model
         'is_business',
         'recurring',
         'date',
+        'source',
+        'tax_category',
+        'notes',
     ];
 
     protected $casts = [
@@ -86,6 +89,22 @@ class Income extends Model
             $query->where('amount', '<=', $max);
         }
 
+        return $query;
+    }
+
+    public function scopeSource($query, $source)
+    {
+        if ($source) {
+            return $query->where('source', 'like', '%' . $source . '%');
+        }
+        return $query;
+    }
+
+    public function scopeTaxCategory($query, $tax_category)
+    {
+        if ($tax_category) {
+            return $query->where('tax_category', $tax_category);
+        }
         return $query;
     }
 }

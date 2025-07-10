@@ -19,13 +19,17 @@ class Expense extends Model
         'recurring',
         'date',
         'vendor',
-        'receipt',
+        'receipt_url',
+        'tax_deductible',
+        'tax_category',
+        'notes',
     ];
 
     protected $casts = [
         'date' => 'date',
         'is_business' => 'boolean',
         'recurring' => 'boolean',
+        'tax_deductible' => 'boolean',
         'amount' => 'decimal:2',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
@@ -84,6 +88,32 @@ class Expense extends Model
             return $query->where('vendor', 'like', '%' . $vendor . '%');
         }
         return $query;
+    }
+
+    public function scopeTaxDeductible($query, $tax_deductible = null)
+    {
+        if ($tax_deductible !== null) {
+            return $query->where('tax_deductible', $tax_deductible);
+        }
+        return $query;
+    }
+
+    public function scopeTaxCategory($query, $tax_category)
+    {
+        if ($tax_category) {
+            return $query->where('tax_category', $tax_category);
+        }
+        return $query;
+    }
+
+    public function scopeWithReceipt($query)
+    {
+        return $query->whereNotNull('receipt_url');
+    }
+
+    public function scopeWithoutReceipt($query)
+    {
+        return $query->whereNull('receipt_url');
     }
 
     public function scopeAmountRange($query, $min, $max)

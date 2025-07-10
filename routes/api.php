@@ -3,7 +3,9 @@
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Expense\ExpenseController;
 use App\Http\Controllers\Income\IncomeController;
-use App\Http\Controllers\Profile\ProfileController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReceiptController;
+use App\Http\Controllers\TaxReportController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -32,7 +34,6 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
-// Protected API routes
 Route::middleware('auth:sanctum')->group(function () {
 
     // User info endpoint
@@ -80,6 +81,23 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{expense}', [ExpenseController::class, 'update']); // PUT /api/expenses/{id}
         Route::patch('/{expense}', [ExpenseController::class, 'update']); // PATCH /api/expenses/{id}
         Route::delete('/{expense}', [ExpenseController::class, 'destroy']); // DELETE /api/expenses/{id}
+    });
+
+    // Receipt Management
+    Route::prefix('receipts')->group(function () {
+        Route::get('/', [ReceiptController::class, 'index']);                    // GET /api/receipts
+        Route::post('/{expense}/upload', [ReceiptController::class, 'upload']);  // POST /api/receipts/{expense}/upload
+        Route::get('/{expense}/download', [ReceiptController::class, 'download']); // GET /api/receipts/{expense}/download
+        Route::get('/{expense}/file', [ReceiptController::class, 'downloadFile'])->name('receipts.download-file'); // Direct file download
+        Route::delete('/{expense}', [ReceiptController::class, 'delete']);       // DELETE /api/receipts/{expense}
+    });
+
+    // Tax Reports
+    Route::prefix('tax-reports')->group(function () {
+        Route::get('/categories', [TaxReportController::class, 'categories']);           // GET /api/tax-reports/categories
+        Route::get('/{year}', [TaxReportController::class, 'annual']);                  // GET /api/tax-reports/2024
+        Route::get('/{year}/{quarter}', [TaxReportController::class, 'quarterly']);     // GET /api/tax-reports/2024/1
+        Route::get('/{year}/deductions', [TaxReportController::class, 'deductions']);   // GET /api/tax-reports/2024/deductions
     });
 
     // Alternative resource routes (for Laravel conventions)

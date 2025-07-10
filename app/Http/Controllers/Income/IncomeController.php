@@ -6,11 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Income\IncomeFilterRequest;
 use App\Http\Requests\Income\IncomeRequest;
 use App\Models\Income;
+use App\Services\StatsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class IncomeController extends Controller
 {
+    public function __construct(
+        private StatsService $statsService
+    ) {}
     public function index(IncomeFilterRequest $request): JsonResponse
     {
         $query = Income::forUser(auth()->id())
@@ -44,6 +48,9 @@ class IncomeController extends Controller
             ...$request->validated(),
             'user_id' => auth()->id(),
         ]);
+
+        // Clear stats cache when new income is created
+        $this->statsService->clearStatsCache(auth()->id());
 
         return response()->json([
             'message' => 'Income created successfully',
@@ -110,20 +117,11 @@ class IncomeController extends Controller
 
     public function stats(IncomeFilterRequest $request): JsonResponse
     {
-        $query = Income::forUser(auth()->id())
-            ->dateRange($request->date_from, $request->date_to)
-            ->category($request->category)
-            ->isBusiness($request->is_business)
-            ->recurring($request->recurring);
+        $filters = array_filter($request->only([
+            'date_from', 'date_to', 'category', 'is_business', 'recurring'
+        ]));
 
-        $stats = [
-            'total_amount' => $query->sum('amount'),
-            'count' => $query->count(),
-            'average' => $query->avg('amount'),
-            'business_income' => Income::forUser(auth()->id())->where('is_business', true)->sum('amount'),
-            'personal_income' => Income::forUser(auth()->id())->where('is_business', false)->sum('amount'),
-            'recurring_income' => Income::forUser(auth()->id())->where('recurring', true)->sum('amount'),
-        ];
+        $stats = $this->statsService->getIncomeStats(auth()->id(), $filters);
 
         return response()->json([
             'data' => $stats

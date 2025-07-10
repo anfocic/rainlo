@@ -69,6 +69,12 @@ class ExpenseRequest extends FormRequest
             ]);
         }
 
+        if ($this->has('tax_deductible')) {
+            $this->merge([
+                'tax_deductible' => filter_var($this->tax_deductible, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false,
+            ]);
+        }
+
         // Ensure amount is properly formatted
         if ($this->has('amount')) {
             $this->merge([

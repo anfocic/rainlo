@@ -11,6 +11,16 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
+    public function income()
+    {
+        return $this->hasMany(Income::class);
+    }
+
+    public function expense()
+    {
+        return $this->hasMany(Expense::class);
+    }
+
     protected $fillable = [
         'name',
         'email',

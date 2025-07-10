@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -19,6 +20,13 @@ class UserFactory extends Factory
             'remember_token' => Str::random(10),
         ];
     }
+
+    public function configure()
+    {
+        return $this->afterCreating(function (User $user) {
+            //logic can be added here tht runs after model creation
+        });
+      }
 
     //Static is a new feature in PHP 8.1
     //$this->state() is a method on the Factory class
