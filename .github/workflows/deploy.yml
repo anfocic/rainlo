@@ -119,7 +119,8 @@ jobs:
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.SSH_KEY }}
         port: ${{ secrets.PORT }}
-        script: |
+        timeout: 300s
+        command_timeout: 60s        script: |
           # Navigate to deployment directory
           cd /opt/smartax
           
@@ -131,16 +132,16 @@ jobs:
           export IMAGE_TAG=${{ needs.build-and-push.outputs.image }}
           
           # Stop current containers
-          docker-compose down
+          docker-compose -f docker-compose.prod.yml down || true
           
           # Start with new image
-          docker-compose up -d
+          docker-compose -f docker-compose.prod.yml up -d
           
           # Wait for services to be ready
           sleep 30
           
           # Run migrations
-          docker-compose exec -T app php artisan migrate --force
+          docker-compose -f docker-compose.prod.yml exec -T app php artisan migrate --force
           
           # Health check
           curl -f http://localhost:8080/up || exit 1
