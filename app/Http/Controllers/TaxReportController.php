@@ -10,9 +10,6 @@ use Illuminate\Http\Request;
 
 class TaxReportController extends Controller
 {
-    /**
-     * Generate annual tax report
-     */
     public function annual(Request $request, int $year): JsonResponse
     {
         $request->validate([
@@ -29,7 +26,7 @@ class TaxReportController extends Controller
         // Base queries
         $incomeQuery = Income::forUser($userId)
             ->whereBetween('date', [$startDate, $endDate]);
-        
+
         $expenseQuery = Expense::forUser($userId)
             ->whereBetween('date', [$startDate, $endDate]);
 
