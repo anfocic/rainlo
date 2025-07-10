@@ -3,9 +3,6 @@
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Expense\ExpenseController;
 use App\Http\Controllers\Income\IncomeController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\ReceiptController;
-use App\Http\Controllers\TaxReportController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -52,12 +49,7 @@ Route::middleware('auth:sanctum')->group(function () {
         });
     });
 
-    // Profile Management
-    Route::prefix('profile')->group(function () {
-        Route::get('/', [ProfileController::class, 'show']);
-        Route::patch('/', [ProfileController::class, 'update']);
-        Route::delete('/', [ProfileController::class, 'destroy']);
-    });
+    // Profile Management - Removed for demo
 
     // Income Management
     Route::prefix('incomes')->group(function () {
@@ -83,22 +75,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/{expense}', [ExpenseController::class, 'destroy']); // DELETE /api/expenses/{id}
     });
 
-    // Receipt Management
-    Route::prefix('receipts')->group(function () {
-        Route::get('/', [ReceiptController::class, 'index']);                    // GET /api/receipts
-        Route::post('/{expense}/upload', [ReceiptController::class, 'upload']);  // POST /api/receipts/{expense}/upload
-        Route::get('/{expense}/download', [ReceiptController::class, 'download']); // GET /api/receipts/{expense}/download
-        Route::get('/{expense}/file', [ReceiptController::class, 'downloadFile'])->name('receipts.download-file'); // Direct file download
-        Route::delete('/{expense}', [ReceiptController::class, 'delete']);       // DELETE /api/receipts/{expense}
-    });
-
-    // Tax Reports
-    Route::prefix('tax-reports')->group(function () {
-        Route::get('/categories', [TaxReportController::class, 'categories']);           // GET /api/tax-reports/categories
-        Route::get('/{year}', [TaxReportController::class, 'annual']);                  // GET /api/tax-reports/2024
-        Route::get('/{year}/{quarter}', [TaxReportController::class, 'quarterly']);     // GET /api/tax-reports/2024/1
-        Route::get('/{year}/deductions', [TaxReportController::class, 'deductions']);   // GET /api/tax-reports/2024/deductions
-    });
+    // Receipt Management - Removed for demo
+    // Tax Reports - Removed for demo
 
     // Alternative resource routes (for Laravel conventions)
     Route::apiResource('incomes', IncomeController::class);
