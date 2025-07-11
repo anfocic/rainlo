@@ -18,7 +18,7 @@ cd /opt/rainlo
 # Clone the repository (you'll need to set up SSH keys)
 echo "📥 Cloning repository..."
 if [ ! -d ".git" ]; then
-    git clone git@github.com:anfocic/rainlo.git .
+    git clone git@github.com:anfocic/smartax.git .
 else
     echo "Repository already exists, pulling latest..."
     git pull origin master
