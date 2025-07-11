@@ -4,7 +4,7 @@
 Rainlo API is a comprehensive financial management system built with Laravel, providing secure endpoints for income/expense tracking, receipt management, and financial reporting.
 
 **Base URL**: `http://localhost:8000/api`  
-**Authentication**: Bearer Token (Laravel Sanctum)  
+**Authenticatio n**: Bearer Token (Laravel Sanctum)  
 **Content-Type**: `application/json`
 
 ---
