@@ -7,6 +7,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
 
+// Handle preflight OPTIONS requests for all API routes
+Route::options('{any}', function () {
+    return response('', 200);
+})->where('any', '.*');
+
 /*
 |--------------------------------------------------------------------------
 | API Routes
