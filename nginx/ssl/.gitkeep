@@ -1,0 +1,2 @@
+# SSL certificates will be placed here
+# This directory is mounted in docker-compose for SSL certificates

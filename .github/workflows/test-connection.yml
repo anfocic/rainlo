@@ -6,7 +6,7 @@ on:
 jobs:
   test-connection:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Test SSH Connection
       uses: appleboy/ssh-action@v1.0.3
@@ -20,4 +20,4 @@ jobs:
           whoami
           pwd
           docker --version
-          ls -la /opt/smartax/
+          ls -la /opt/rainlo/

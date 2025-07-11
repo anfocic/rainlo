@@ -1,8 +1,8 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "smartax/api",
+    "name": "rainlo/api",
     "type": "project",
-    "description": "SmartTax API - Laravel backend for tax management application.",
+    "description": "Rainlo API - Laravel backend for financial management application.",
     "keywords": [
         "laravel",
         "framework"

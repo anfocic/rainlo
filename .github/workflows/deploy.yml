@@ -19,7 +19,7 @@ jobs:
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: password
-          MYSQL_DATABASE: smartax_test
+          MYSQL_DATABASE: rainlo_test
         ports:
           - 3306:3306
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
@@ -47,7 +47,7 @@ jobs:
         echo "DB_CONNECTION=mysql" >> .env
         echo "DB_HOST=127.0.0.1" >> .env
         echo "DB_PORT=3306" >> .env
-        echo "DB_DATABASE=smartax_test" >> .env
+        echo "DB_DATABASE=rainlo_test" >> .env
         echo "DB_USERNAME=root" >> .env
         echo "DB_PASSWORD=password" >> .env
 
@@ -123,7 +123,7 @@ jobs:
         command_timeout: 60s
         script: |
           # Navigate to deployment directory
-          cd /opt/smartax
+          cd /opt/rainlo
 
           # Pull latest image
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -131,6 +131,9 @@ jobs:
 
           # Update docker-compose to use new image
           export IMAGE_TAG=${{ needs.build-and-push.outputs.image }}
+          export APP_KEY="${{ secrets.APP_KEY }}"
+          export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
+          export MYSQL_ROOT_PASSWORD="${{ secrets.MYSQL_ROOT_PASSWORD }}"
 
           # Stop current containers
           docker-compose -f docker-compose.prod.yml down || true
@@ -140,6 +143,23 @@ jobs:
 
           # Wait for services to be ready
           sleep 30
+
+          # Run migrations
+          docker-compose -f docker-compose.prod.yml exec -T app php artisan migrate --force
+
+          # Clear and cache config
+          docker-compose -f docker-compose.prod.yml exec -T app php artisan config:clear
+          docker-compose -f docker-compose.prod.yml exec -T app php artisan config:cache
+          docker-compose -f docker-compose.prod.yml exec -T app php artisan route:cache
+
+          # Test the deployment
+          if curl -f -s http://localhost:8080/api/health > /dev/null; then
+            echo "✅ Deployment successful! API is responding."
+            echo "🌐 API available at: https://api.rainlo.app"
+          else
+            echo "❌ Deployment failed - API not responding"
+            exit 1
+          fi
 
           # Run migrations
           docker-compose -f docker-compose.prod.yml exec -T app php artisan migrate --force

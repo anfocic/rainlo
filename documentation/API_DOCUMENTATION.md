@@ -1,7 +1,7 @@
-# SmartTax API Documentation
+# Rainlo API Documentation
 
 ## 🚀 **Overview**
-SmartTax API is a comprehensive tax management system built with Laravel, providing secure endpoints for income/expense tracking, receipt management, and tax reporting.
+Rainlo API is a comprehensive financial management system built with Laravel, providing secure endpoints for income/expense tracking, receipt management, and financial reporting.
 
 **Base URL**: `http://localhost:8000/api`  
 **Authentication**: Bearer Token (Laravel Sanctum)  

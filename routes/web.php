@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 
 Route::get('/', function () {
     return response()->json([
-        'message' => 'SmartTax API is running',
+        'message' => 'Rainlo API is running',
         'version' => '1.0.0',
         'status' => 'healthy'
     ]);

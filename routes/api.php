@@ -5,6 +5,7 @@ use App\Http\Controllers\Expense\ExpenseController;
 use App\Http\Controllers\Income\IncomeController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\DB;
 
 /*
 |--------------------------------------------------------------------------
@@ -16,6 +17,37 @@ use Illuminate\Support\Facades\Route;
 | be assigned to the "api" middleware group. Make something great!
 |
 */
+
+// Health check endpoint
+Route::get('/health', function () {
+    try {
+        // Check database connection
+        DB::connection()->getPdo();
+
+        return response()->json([
+            'status' => 'healthy',
+            'timestamp' => now()->toISOString(),
+            'app' => 'Rainlo API',
+            'version' => '1.0.0',
+            'services' => [
+                'database' => 'connected',
+                'application' => 'running'
+            ]
+        ], 200);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'unhealthy',
+            'timestamp' => now()->toISOString(),
+            'app' => 'Rainlo API',
+            'version' => '1.0.0',
+            'error' => 'Database connection failed',
+            'services' => [
+                'database' => 'disconnected',
+                'application' => 'running'
+            ]
+        ], 503);
+    }
+});
 
 // Public Auth Routes
 Route::prefix('auth')->group(function () {

@@ -9,13 +9,13 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     services:
       mysql:
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: password
-          MYSQL_DATABASE: smartax_test
+          MYSQL_DATABASE: rainlo_test
         ports:
           - 3306:3306
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
@@ -43,7 +43,7 @@ jobs:
         echo "DB_CONNECTION=mysql" >> .env
         echo "DB_HOST=127.0.0.1" >> .env
         echo "DB_PORT=3306" >> .env
-        echo "DB_DATABASE=smartax_test" >> .env
+        echo "DB_DATABASE=rainlo_test" >> .env
         echo "DB_USERNAME=root" >> .env
         echo "DB_PASSWORD=password" >> .env
 
@@ -57,12 +57,12 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    
+
     steps:
     - name: Checkout
       uses: actions/checkout@v4
 
     - name: Build Docker image
       run: |
-        docker build -f Dockerfile.simple -t smartax-api:latest .
+        docker build -f Dockerfile.simple -t rainlo-api:latest .
         echo "✅ Docker image built successfully"

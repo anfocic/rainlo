@@ -1,6 +1,6 @@
-# SmartTax API
+# Rainlo API
 
-A clean Laravel API backend for tax management applications, built with Laravel 12 and Sanctum for authentication.
+A clean Laravel API backend for financial management applications, built with Laravel 12 and Sanctum for authentication.
 
 ## Features
 
@@ -63,6 +63,34 @@ curl -X GET http://localhost:8000/api/user \
   -H "Authorization: Bearer YOUR_TOKEN_HERE"
 ```
 
-## Next Steps
+## Production Deployment
 
-This API is ready to be paired with a Next.js frontend or any other frontend framework of your choice. The clean separation allows for flexible frontend development while maintaining a robust backend.
+This API is configured for automatic deployment via GitHub Actions to `api.rainlo.app`.
+
+### CI/CD Setup
+
+1. **Server Setup**: Run `./scripts/setup-server.sh` on your server
+2. **GitHub Secrets**: Follow `GITHUB_SECRETS_SETUP.md` to configure secrets
+3. **Cloudflare Tunnel**: Follow `CLOUDFLARE_TUNNEL_SETUP.md` to configure tunnel
+4. **Deploy**: Push to master branch to trigger automatic deployment
+
+### Manual Deployment
+
+```bash
+# On your server
+cd /opt/rainlo
+./scripts/deploy-production.sh
+```
+
+### API Endpoints
+
+- **Production**: https://api.rainlo.app
+- **Health Check**: https://api.rainlo.app/api/health
+
+## Architecture
+
+- **Backend**: Laravel API (this repository)
+- **Frontend**: Next.js on Cloudflare Pages (rainlo.app)
+- **Database**: MySQL with Redis caching
+- **Deployment**: Docker + GitHub Actions
+- **SSL/CDN**: Cloudflare Tunnel
