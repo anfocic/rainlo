@@ -3,14 +3,14 @@
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Expense\ExpenseController;
 use App\Http\Controllers\Income\IncomeController;
+use App\Http\Controllers\Tax\TaxCalculatorController;
+use App\Http\Controllers\ReceiptController;
+use App\Http\Controllers\PdfExportController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
 
-// Handle preflight OPTIONS requests for all API routes
-Route::options('{any}', function () {
-    return response('', 200);
-})->where('any', '.*');
+// CORS is now handled by CorsMiddleware
 
 /*
 |--------------------------------------------------------------------------
@@ -114,6 +114,36 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Receipt Management - Removed for demo
     // Tax Reports - Removed for demo
+
+    // Tax Calculator Routes
+    Route::prefix('tax')->group(function () {
+        Route::post('/calculate', [TaxCalculatorController::class, 'calculate']); // POST /api/tax/calculate
+        Route::get('/rates', [TaxCalculatorController::class, 'getRates']); // GET /api/tax/rates
+        Route::post('/compare', [TaxCalculatorController::class, 'compareScenarios']); // POST /api/tax/compare
+        Route::post('/marginal-rate', [TaxCalculatorController::class, 'marginalRate']); // POST /api/tax/marginal-rate
+    });
+
+    // Receipt Management Routes
+    Route::prefix('receipts')->group(function () {
+        Route::get('/', [ReceiptController::class, 'index']); // GET /api/receipts
+        Route::post('/expenses/{expense}/upload', [ReceiptController::class, 'upload']); // POST /api/receipts/expenses/{expense}/upload
+        Route::get('/expenses/{expense}', [ReceiptController::class, 'show']); // GET /api/receipts/expenses/{expense}
+        Route::delete('/expenses/{expense}', [ReceiptController::class, 'destroy']); // DELETE /api/receipts/expenses/{expense}
+        Route::get('/expenses/{expense}/download', [ReceiptController::class, 'downloadFile'])->name('receipts.download-file'); // GET /api/receipts/expenses/{expense}/download
+    });
+
+    // PDF Export Routes
+    Route::prefix('export')->group(function () {
+        Route::post('/expenses', [PdfExportController::class, 'exportExpenses']); // POST /api/export/expenses
+        Route::post('/incomes', [PdfExportController::class, 'exportIncomes']); // POST /api/export/incomes
+        Route::post('/financial-summary', [PdfExportController::class, 'exportFinancialSummary']); // POST /api/export/financial-summary
+        Route::post('/tax-calculation', [PdfExportController::class, 'exportTaxCalculation']); // POST /api/export/tax-calculation
+
+        // Preview routes (display in browser instead of download)
+        Route::post('/preview/expenses', [PdfExportController::class, 'previewExpenses']); // POST /api/export/preview/expenses
+        Route::post('/preview/incomes', [PdfExportController::class, 'previewIncomes']); // POST /api/export/preview/incomes
+        Route::post('/preview/financial-summary', [PdfExportController::class, 'previewFinancialSummary']); // POST /api/export/preview/financial-summary
+    });
 
     // Alternative resource routes (for Laravel conventions)
     Route::apiResource('incomes', IncomeController::class);

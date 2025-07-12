@@ -13,8 +13,9 @@ services:
       - APP_DEBUG=false
       - APP_KEY=${APP_KEY}
       - APP_URL=${APP_URL:-https://api.rainlo.app}
-      - DB_CONNECTION=mysql
+      - DB_CONNECTION=pgsql
       - DB_HOST=db
+      - DB_PORT=5432
       - DB_DATABASE=rainlo
       - DB_USERNAME=rainlo
       - DB_PASSWORD=${DB_PASSWORD}
@@ -24,7 +25,8 @@ services:
       - SESSION_DRIVER=file
       - QUEUE_CONNECTION=sync
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     volumes:
       - app_storage:/var/www/html/storage
       - app_cache:/var/www/html/bootstrap/cache
@@ -33,22 +35,25 @@ services:
       - rainlo-network
 
   db:
-    image: mysql:8.0
+    image: postgres:15-alpine
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_DATABASE=rainlo
-      - MYSQL_USER=rainlo
-      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=rainlo
+      - POSTGRES_USER=rainlo
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
     # Database not exposed externally in production
     expose:
-      - "3306"
+      - "5432"
     volumes:
-      - db_data:/var/lib/mysql
-      - ./mysql-init:/docker-entrypoint-initdb.d
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rainlo -d rainlo"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
     restart: unless-stopped
     networks:
       - rainlo-network
-    command: --default-authentication-plugin=mysql_native_password
 
 
 

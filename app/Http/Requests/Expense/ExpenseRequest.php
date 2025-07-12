@@ -21,7 +21,10 @@ class ExpenseRequest extends FormRequest
             'is_business' => 'boolean',
             'recurring' => 'boolean',
             'vendor' => 'nullable|string|max:255',
-            'receipt' => 'nullable|string|max:500',
+            'receipt_url' => 'nullable|string|max:500',
+            'tax_deductible' => 'boolean',
+            'tax_category' => 'nullable|string|max:100',
+            'notes' => 'nullable|string|max:1000',
         ];
 
         if ($this->isMethod('PUT') || $this->isMethod('PATCH')) {

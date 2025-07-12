@@ -35,25 +35,26 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request): JsonResponse
     {
-        $request->authenticate(); // Use the existing authenticate method from LoginRequest
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $request->authenticate(); // Use the existing authenticate method from LoginRequest
 
-        $user = $request->user();
-        $token = $user->createToken('auth-token')->plainTextToken;
+            $user = $request->user();
+            $token = $user->createToken('auth-token')->plainTextToken;
 
-        return response()->json([
-            'message' => 'Login successful',
-            'user' => $user,
-            'token' => $token,
-        ]);
+            return $this->successWithData([
+                'user' => $user,
+                'token' => $token,
+            ], 'Login successful');
+        });
     }
 
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $request->user()->currentAccessToken()->delete();
 
-        return response()->json([
-            'message' => 'Logout successful',
-        ]);
+            return $this->success(null, 'Logout successful');
+        });
     }
 
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse

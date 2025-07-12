@@ -21,6 +21,9 @@ IncomeRequest extends FormRequest
             'date' => 'required|date|before_or_equal:today',
             'is_business' => 'boolean',
             'recurring' => 'boolean',
+            'source' => 'nullable|string|max:255',
+            'tax_category' => 'nullable|string|max:100',
+            'notes' => 'nullable|string|max:1000',
         ];
 
         // For updates, make some fields optional

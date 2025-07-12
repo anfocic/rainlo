@@ -378,6 +378,181 @@ Authorization: Bearer {token}
 
 ---
 
+## 💰 **Tax Calculator**
+
+### Calculate Tax
+```http
+POST /api/tax/calculate
+Authorization: Bearer {token}
+```
+
+**Request Body:**
+```json
+{
+    "annual_income": 50000,
+    "marital_status": "single",
+    "has_children": false,
+    "spouse_income": null
+}
+```
+
+**Response (200):**
+```json
+{
+    "message": "Tax calculation completed successfully",
+    "data": {
+        "annual": {
+            "annual_income": 50000,
+            "marital_status": "single",
+            "has_children": false,
+            "spouse_income": null,
+            "breakdown": {
+                "income_tax": 9200,
+                "usc": 1046,
+                "prsi": 2100,
+                "gross_tax": 12346,
+                "tax_credits": 4000,
+                "net_tax": 8346
+            },
+            "net_income": 41654,
+            "effective_tax_rate": 16.69,
+            "marginal_tax_rate": 32.2
+        },
+        "monthly": {
+            "monthly_gross_income": 4166.67,
+            "monthly_breakdown": {
+                "income_tax": 766.67,
+                "usc": 87.17,
+                "prsi": 175,
+                "gross_tax": 1028.84,
+                "tax_credits": 333.33,
+                "net_tax": 695.51
+            },
+            "monthly_net_income": 3471.16
+        }
+    },
+    "calculation_date": "2025-01-15T10:30:00.000000Z",
+    "tax_year": 2025
+}
+```
+
+### Get Tax Rates and Bands
+```http
+GET /api/tax/rates
+Authorization: Bearer {token}
+```
+
+**Response (200):**
+```json
+{
+    "message": "Tax rates and bands retrieved successfully",
+    "data": {
+        "income_tax": {
+            "rates": {
+                "standard_rate": 0.2,
+                "higher_rate": 0.4
+            },
+            "bands": {
+                "single": 44000,
+                "married_one_income": 53000,
+                "married_two_incomes_base": 53000,
+                "married_two_incomes_max_increase": 35000,
+                "single_parent": 48000
+            }
+        },
+        "usc": {
+            "bands": [
+                {"limit": 12012, "rate": 0.005},
+                {"limit": 27382, "rate": 0.02},
+                {"limit": 70044, "rate": 0.03},
+                {"limit": null, "rate": 0.08}
+            ]
+        },
+        "prsi": {
+            "rate": 0.042
+        },
+        "tax_credits": {
+            "single_person": 2000,
+            "married_person": 4000,
+            "employee_paye": 2000,
+            "single_parent_child_carer": 1900
+        },
+        "year": 2025
+    },
+    "last_updated": "2025-01-01",
+    "source": "Revenue.ie - Irish Tax and Customs"
+}
+```
+
+### Compare Tax Scenarios
+```http
+POST /api/tax/compare
+Authorization: Bearer {token}
+```
+
+**Request Body:**
+```json
+{
+    "scenarios": [
+        {
+            "annual_income": 40000,
+            "marital_status": "single",
+            "has_children": false,
+            "label": "Single €40k"
+        },
+        {
+            "annual_income": 60000,
+            "marital_status": "married",
+            "spouse_income": 25000,
+            "has_children": true,
+            "label": "Married €60k + €25k"
+        }
+    ]
+}
+```
+
+### Calculate Marginal Tax Rate
+```http
+POST /api/tax/marginal-rate
+Authorization: Bearer {token}
+```
+
+**Request Body:**
+```json
+{
+    "annual_income": 45000,
+    "marital_status": "single",
+    "spouse_income": null
+}
+```
+
+**Response (200):**
+```json
+{
+    "message": "Marginal tax rate calculated successfully",
+    "data": {
+        "annual_income": 45000,
+        "marginal_tax_rate": 52.2,
+        "effective_marginal_rate": 52.2,
+        "tax_on_next_1000": 522,
+        "net_from_next_1000": 478
+    }
+}
+```
+
+**Marital Status Options:**
+- `single`: Single person
+- `married`: Married or in civil partnership
+- `single_parent`: Single person with qualifying children
+
+**Tax Components Calculated:**
+- **Income Tax (PAYE)**: 20% standard rate, 40% higher rate
+- **Universal Social Charge (USC)**: Progressive rates (0.5%, 2%, 3%, 8%)
+- **PRSI**: 4.2% for Class A1 employees
+- **Tax Credits**: Personal, employee PAYE, and child carer credits
+
+---
+
 ## ❌ **Error Responses**
 
 ### Validation Error (422)

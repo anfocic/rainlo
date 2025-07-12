@@ -1,4 +1,4 @@
-# Laravel Production Dockerfile for Render
+# Laravel Production Dockerfile with PostgreSQL
 FROM php:8.2-fpm-alpine
 
 # Install system dependencies
@@ -14,8 +14,8 @@ RUN apk add --no-cache \
     nginx \
     supervisor
 
-# Install PHP extensions (including PostgreSQL support)
-RUN docker-php-ext-install pdo pdo_pgsql pdo_mysql bcmath gd
+# Install PHP extensions (PostgreSQL support only)
+RUN docker-php-ext-install pdo pdo_pgsql bcmath gd
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -42,7 +42,8 @@ RUN composer run-script post-autoload-dump \
 COPY nginx.simple.conf /etc/nginx/nginx.conf
 
 # Create supervisor configuration for managing multiple processes
-RUN echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf \
+RUN mkdir -p /etc/supervisor/conf.d \
+    && echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf \
     && echo 'nodaemon=true' >> /etc/supervisor/conf.d/supervisord.conf \
     && echo 'user=root' >> /etc/supervisor/conf.d/supervisord.conf \
     && echo '' >> /etc/supervisor/conf.d/supervisord.conf \

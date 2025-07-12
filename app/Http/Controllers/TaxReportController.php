@@ -128,9 +128,6 @@ class TaxReportController extends Controller
         ]);
     }
 
-    /**
-     * Generate quarterly tax report
-     */
     public function quarterly(Request $request, int $year, int $quarter): JsonResponse
     {
         if ($quarter < 1 || $quarter > 4) {
