@@ -13,7 +13,7 @@ echo "🚀 Starting Git-based deployment..."
 # Navigate to project directory
 cd "$PROJECT_PATH" || {
     echo "❌ Project directory not found. Cloning repository..."
-    git clone https://github.com/yourusername/rainlo.git "$PROJECT_PATH"
+    git clone https://github.com/anfocic/rainlo.git "$PROJECT_PATH"
     cd "$PROJECT_PATH"
 }
 
@@ -51,7 +51,7 @@ if [ -f "artisan" ]; then
     php artisan route:cache
     php artisan view:cache
     php artisan migrate --force
-    
+
     # Set proper permissions
     chmod -R 775 storage bootstrap/cache
     chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true
