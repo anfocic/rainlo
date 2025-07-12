@@ -1,4 +1,4 @@
-name: Test SSH Connection port 22
+name: Test SSH Connection port 2222
 
 on:
   workflow_dispatch:
@@ -8,6 +8,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Debug Environment
+        run: |
+          echo "🔍 Environment Debug Info:"
+          echo "Runner OS: $(uname -a)"
+          echo "Current user: $(whoami)"
+          echo "Current directory: $(pwd)"
+          echo "Network interfaces:"
+          ip addr show || ifconfig
+          echo ""
+          echo "DNS resolution test:"
+          nslookup ${{ secrets.HOST }} || echo "DNS lookup failed"
+          echo ""
+          echo "Network connectivity test:"
+          ping -c 3 ${{ secrets.HOST }} || echo "Ping failed"
+          echo ""
+          echo "Port connectivity test:"
+          timeout 10 bash -c "</dev/tcp/${{ secrets.HOST }}/${{ secrets.PORT }}" && echo "Port ${{ secrets.PORT }} is open" || echo "Port ${{ secrets.PORT }} is closed/filtered"
+
       - name: Setup SSH key and test connection
         env:
           DEPLOY_KEY: ${{ secrets.SSH_KEY }}
@@ -15,9 +33,55 @@ jobs:
           USERNAME: ${{ secrets.USERNAME }}
           PORT: ${{ secrets.PORT }}
         run: |
+          echo "🔧 Setting up SSH configuration..."
+
+          # Debug secrets (without exposing sensitive data)
+          echo "HOST: $HOST"
+          echo "USERNAME: $USERNAME"
+          echo "PORT: $PORT"
+          echo "SSH_KEY length: ${#DEPLOY_KEY} characters"
+
+          # Setup SSH directory and key
           mkdir -p ~/.ssh
           echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          chmod 700 ~/.ssh
 
-          echo "👉 Starting SSH connection..."
-          ssh -4 -vvv -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key -p "$PORT" "$USERNAME@$HOST" exit
+          # Verify key format
+          echo "🔍 SSH Key verification:"
+          head -1 ~/.ssh/deploy_key
+          tail -1 ~/.ssh/deploy_key
+
+          # Test key validity
+          ssh-keygen -l -f ~/.ssh/deploy_key || echo "⚠️ SSH key validation failed"
+
+          echo ""
+          echo "🌐 Testing network connectivity to $HOST:$PORT..."
+
+          # Test with netcat first
+          timeout 10 nc -zv "$HOST" "$PORT" && echo "✅ Port $PORT is reachable" || echo "❌ Port $PORT is not reachable"
+
+          echo ""
+          echo "🔐 Testing SSH connection with maximum verbosity..."
+
+          # SSH connection with comprehensive debugging
+          ssh -4 -vvv \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=30 \
+            -o ServerAliveInterval=10 \
+            -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key \
+            -p "$PORT" \
+            "$USERNAME@$HOST" \
+            'echo "✅ SSH connection successful!"; whoami; pwd; uname -a; date' || {
+              echo "❌ SSH connection failed with exit code $?"
+              echo ""
+              echo "🔍 Additional debugging:"
+              echo "Trying with IPv6..."
+              ssh -6 -vvv -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i ~/.ssh/deploy_key -p "$PORT" "$USERNAME@$HOST" exit || echo "IPv6 connection also failed"
+              echo ""
+              echo "Testing with different SSH options..."
+              ssh -4 -v -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey -i ~/.ssh/deploy_key -p "$PORT" "$USERNAME@$HOST" exit || echo "Alternative SSH options failed"
+              exit 1
+            }
