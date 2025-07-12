@@ -63,7 +63,7 @@ services:
       nginx -g "daemon off;"
 
   # PostgreSQL Database
-  - type: postgresql
+  - type: psql
     name: rainlo-db
     plan: starter  # Free tier - 90 days, then $7/month
     databaseName: rainlo
