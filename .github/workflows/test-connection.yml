@@ -8,6 +8,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Test ping to server
+        run: |
+          ping -c 4 ${{ secrets.HOST }}
+
+      - name: Test TCP connection to SSH port
+        run: |
+          sudo apt-get update && sudo apt-get install -y netcat
+          nc -zv ${{ secrets.HOST }} ${{ secrets.PORT }}
+
       - name: Deploy to server via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
