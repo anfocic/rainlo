@@ -27,14 +27,16 @@ echo "📥 Pulling latest changes..."
 git fetch origin
 git reset --hard origin/master  # Force update to match remote
 
-# Install/update dependencies
+# Install/update dependencies using Docker
 echo "📦 Installing dependencies..."
 if [ -f "composer.json" ]; then
-    composer install --no-dev --optimize-autoloader
+    echo "Installing PHP dependencies with Docker..."
+    docker run --rm -v "$PWD":/app composer:latest install --no-dev --optimize-autoloader --working-dir=/app
 fi
 
 if [ -f "package.json" ]; then
-    npm ci --production
+    echo "Installing Node dependencies with Docker..."
+    docker run --rm -v "$PWD":/app -w /app node:18-alpine npm ci --production
 fi
 
 # Set up environment
@@ -44,25 +46,45 @@ if [ ! -f ".env" ] && [ -f ".env.production" ]; then
     echo "✅ Environment file created from .env.production"
 fi
 
-# Laravel specific commands
+# Set proper permissions first
+echo "🔧 Setting permissions..."
+chmod -R 775 storage bootstrap/cache 2>/dev/null || true
+chown -R 1000:1000 storage bootstrap/cache 2>/dev/null || true
+
+# Laravel specific commands using Docker
 if [ -f "artisan" ]; then
     echo "🔧 Running Laravel commands..."
-    php artisan config:cache
-    php artisan route:cache
-    php artisan view:cache
-    php artisan migrate --force
 
-    # Set proper permissions
-    chmod -R 775 storage bootstrap/cache
-    chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true
+    # Start containers first
+    if [ -f "docker-compose.yml" ]; then
+        echo "Starting Docker containers..."
+        docker-compose up -d
+
+        # Wait a moment for containers to be ready
+        sleep 5
+
+        # Run Laravel commands inside the container
+        echo "Running Laravel artisan commands..."
+        docker-compose exec -T app php artisan config:cache || echo "Config cache failed"
+        docker-compose exec -T app php artisan route:cache || echo "Route cache failed"
+        docker-compose exec -T app php artisan view:cache || echo "View cache failed"
+        docker-compose exec -T app php artisan migrate --force || echo "Migration failed"
+    else
+        echo "No docker-compose.yml found, skipping Laravel commands"
+    fi
 fi
 
-# Restart services
-echo "🔄 Restarting services..."
+# Final restart of services
+echo "🔄 Final restart of services..."
 if [ -f "docker-compose.yml" ]; then
+    echo "Rebuilding and restarting containers..."
     docker-compose down
     docker-compose up -d --build
-elif systemctl is-active --quiet nginx; then
+
+    # Show container status
+    echo "Container status:"
+    docker-compose ps
+elif systemctl is-active --quiet nginx 2>/dev/null; then
     sudo systemctl reload nginx
 fi
 
