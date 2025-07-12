@@ -1,146 +1,202 @@
 #!/bin/bash
 
-# Refined Git-based deployment script for Rainlo
-# Usage: ./deploy.sh [--skip-backup] [--skip-deps] [--branch=branch-name]
+# Git-based deployment script for Rainlo
+# Run this script on your server after pulling changes from GitHub
+# This script preserves important files and handles migrations safely
 
 set -e
 
-### CONFIGURATION ###
 PROJECT_PATH="/opt/rainlo"
-LOGFILE="/var/log/rainlo-deploy.log"
-DEFAULT_BRANCH="master"
-APP_CONTAINER="app"
-DB_CONTAINER="db"
-#####################
+BACKUP_PATH="/opt/rainlo-backup-$(date +%Y%m%d-%H%M%S)"
 
-### Parse CLI Arguments ###
-SKIP_BACKUP=false
-SKIP_DEPS=false
-BRANCH="$DEFAULT_BRANCH"
+echo "🚀 Starting Git-based deployment..."
 
-for arg in "$@"; do
-  case $arg in
-    --skip-backup) SKIP_BACKUP=true ;;
-    --skip-deps) SKIP_DEPS=true ;;
-    --branch=*) BRANCH="${arg#*=}" ;;
-  esac
-done
+# Navigate to project directory
+cd "$PROJECT_PATH" || {
+    echo "❌ Project directory not found at $PROJECT_PATH"
+    echo "Please ensure the repository is cloned to $PROJECT_PATH first"
+    exit 1
+}
 
-### Logging ###
-mkdir -p "$(dirname "$LOGFILE")"
-exec > >(tee -a "$LOGFILE") 2>&1
-
-echo "🚀 Starting deployment [branch: $BRANCH]..."
-
-### Clone Repo if Needed ###
-if [ ! -d "$PROJECT_PATH/.git" ]; then
-  echo "❌ Project directory not found. Cloning repository..."
-  git clone https://github.com/anfocic/rainlo.git "$PROJECT_PATH"
+# Verify we're in a git repository
+if [ ! -d ".git" ]; then
+    echo "❌ Not a git repository. Please clone the repository first."
+    exit 1
 fi
 
-cd "$PROJECT_PATH"
+# Create backup of important files before deployment
+echo "📦 Creating backup of important files..."
+mkdir -p "$BACKUP_PATH"
+[ -f ".env" ] && cp .env "$BACKUP_PATH/.env.backup" || echo "No .env file to backup"
+[ -d "storage" ] && cp -r storage "$BACKUP_PATH/storage.backup" || echo "No storage directory to backup"
+echo "✅ Backup created at $BACKUP_PATH"
 
-### Backup ###
-if [ "$SKIP_BACKUP" = false ]; then
-  BACKUP_PATH="/opt/rainlo-backup-$(date +%Y%m%d-%H%M%S)"
-  echo "📦 Creating backup at $BACKUP_PATH..."
-  rsync -a --exclude={node_modules,vendor,.git} "$PROJECT_PATH/" "$BACKUP_PATH/"
-  echo "✅ Backup created."
-fi
+# Check current git status
+echo "📊 Checking git status..."
+git status --porcelain
 
-### Git Pull ###
-echo "📥 Pulling latest changes from origin/$BRANCH..."
+# Stash any local changes to preserve important files
+echo "💾 Stashing local changes..."
+git stash push -m "Pre-deployment stash $(date)"
+
+# Pull latest changes safely
+echo "📥 Pulling latest changes..."
 git fetch origin
-if ! git diff --quiet || ! git diff --cached --quiet; then
-  echo "⚠️  Local changes detected. Stashing them..."
-  git stash push -m "Auto-stash before deployment $(date)"
-fi
-git reset --hard origin/"$BRANCH"
+git merge origin/master || {
+    echo "❌ Git merge failed. Rolling back..."
+    git stash pop || true
+    exit 1
+}
 
-if git stash list | grep -q "Auto-stash before deployment"; then
-  echo "📦 Restoring stashed changes..."
-  git stash pop || echo "⚠️ Could not restore stashed changes automatically"
+# Set up environment first (before dependencies)
+echo "⚙️ Setting up environment..."
+if [ -f "$BACKUP_PATH/.env.backup" ]; then
+    echo "Restoring previous .env file..."
+    cp "$BACKUP_PATH/.env.backup" .env
+    echo "✅ Previous .env file restored"
+elif [ ! -f ".env" ] && [ -f ".env.production" ]; then
+    echo "Creating .env from .env.production..."
+    cp .env.production .env
+    echo "✅ Environment file created from .env.production"
+elif [ ! -f ".env" ]; then
+    echo "❌ No .env file found and no .env.production template available"
+    exit 1
 fi
 
-### Dependencies ###
-if [ "$SKIP_DEPS" = false ]; then
-  if [ -f "composer.json" ]; then
-    echo "📦 Installing PHP dependencies..."
+# Install/update dependencies using Docker
+echo "📦 Installing dependencies..."
+if [ -f "composer.json" ]; then
+    echo "Installing PHP dependencies with Docker..."
     docker run --rm -v "$PWD":/app composer:latest install --no-dev --optimize-autoloader --working-dir=/app
-  fi
+fi
 
-  if [ -f "package.json" ]; then
-    echo "📦 Installing Node dependencies..."
+if [ -f "package.json" ]; then
+    echo "Installing Node dependencies with Docker..."
     docker run --rm -v "$PWD":/app -w /app node:18-alpine npm ci --production
-  fi
-else
-  echo "⏩ Skipping dependency installation (--skip-deps)."
 fi
 
-### Environment Setup ###
-if [ ! -f ".env" ] && [ -f ".env.production" ]; then
-  cp .env.production .env
-  echo "✅ Environment file created from .env.production"
-fi
-
-### Permissions ###
+# Set proper permissions first
 echo "🔧 Setting permissions..."
 chmod -R 775 storage bootstrap/cache 2>/dev/null || true
 chown -R 1000:1000 storage bootstrap/cache 2>/dev/null || true
 
-### Laravel Setup ###
+# Stop existing containers to avoid conflicts
+echo "🛑 Stopping existing containers..."
+if [ -f "docker-compose.prod.yml" ]; then
+    docker-compose -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
+elif [ -f "docker-compose.yml" ]; then
+    docker-compose down --remove-orphans 2>/dev/null || true
+fi
+
+# Laravel specific commands using Docker
 if [ -f "artisan" ]; then
-  if [ -f "docker-compose.yml" ]; then
-    echo "🔧 Starting Docker containers..."
-    docker-compose up -d --remove-orphans
+    echo "🔧 Running Laravel deployment..."
 
-    echo "⏳ Waiting for database to be ready..."
-    timeout=60
-    while [ $timeout -gt 0 ]; do
-      if docker-compose exec -T "$DB_CONTAINER" mysqladmin ping -h localhost --silent; then
-        echo "✅ Database is ready!"
-        break
-      fi
-      echo "⏳ Waiting for DB... ($timeout seconds left)"
-      sleep 2
-      timeout=$((timeout - 2))
-    done
-
-    if [ $timeout -le 0 ]; then
-      echo "❌ Database startup timeout reached."
-      exit 1
+    # Determine which docker-compose file to use
+    COMPOSE_FILE=""
+    if [ -f "docker-compose.prod.yml" ]; then
+        COMPOSE_FILE="docker-compose.prod.yml"
+        echo "Using production docker-compose configuration"
+    elif [ -f "docker-compose.yml" ]; then
+        COMPOSE_FILE="docker-compose.yml"
+        echo "Using development docker-compose configuration"
+    else
+        echo "❌ No docker-compose configuration found"
+        exit 1
     fi
 
-    echo "⚙️ Running Laravel artisan commands..."
-    docker-compose exec -T "$APP_CONTAINER" php artisan config:cache || true
-    docker-compose exec -T "$APP_CONTAINER" php artisan route:cache || true
-    docker-compose exec -T "$APP_CONTAINER" php artisan view:cache || true
-    docker-compose exec -T "$APP_CONTAINER" php artisan migrate --force || true
-  else
-    echo "ℹ️ No docker-compose.yml found, skipping Laravel commands."
-  fi
+    # Start containers
+    echo "🚀 Starting Docker containers..."
+    docker-compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
+
+    # Wait for containers to be ready
+    echo "⏳ Waiting for containers to be ready..."
+    sleep 10
+
+    # Check if database is accessible
+    echo "🔍 Checking database connectivity..."
+    for i in {1..30}; do
+        if docker-compose -f "$COMPOSE_FILE" exec -T app php artisan tinker --execute="DB::connection()->getPdo(); echo 'Database connected successfully';" 2>/dev/null; then
+            echo "✅ Database connection successful"
+            break
+        else
+            echo "⏳ Waiting for database... (attempt $i/30)"
+            sleep 2
+        fi
+
+        if [ $i -eq 30 ]; then
+            echo "❌ Database connection failed after 30 attempts"
+            echo "Container logs:"
+            docker-compose -f "$COMPOSE_FILE" logs --tail=20
+            exit 1
+        fi
+    done
+
+    # Run Laravel commands inside the container
+    echo "🔧 Running Laravel artisan commands..."
+
+    # Clear caches first
+    docker-compose -f "$COMPOSE_FILE" exec -T app php artisan config:clear || echo "⚠️ Config clear failed"
+    docker-compose -f "$COMPOSE_FILE" exec -T app php artisan route:clear || echo "⚠️ Route clear failed"
+    docker-compose -f "$COMPOSE_FILE" exec -T app php artisan view:clear || echo "⚠️ View clear failed"
+
+    # Run migrations
+    echo "🗄️ Running database migrations..."
+    docker-compose -f "$COMPOSE_FILE" exec -T app php artisan migrate --force || {
+        echo "❌ Migration failed. Check database configuration."
+        docker-compose -f "$COMPOSE_FILE" logs app --tail=20
+        exit 1
+    }
+
+    # Cache configurations
+    docker-compose -f "$COMPOSE_FILE" exec -T app php artisan config:cache || echo "⚠️ Config cache failed"
+    docker-compose -f "$COMPOSE_FILE" exec -T app php artisan route:cache || echo "⚠️ Route cache failed"
+    docker-compose -f "$COMPOSE_FILE" exec -T app php artisan view:cache || echo "⚠️ View cache failed"
+
+    echo "✅ Laravel commands completed successfully"
 fi
 
-### Clean Up Old Containers ###
-echo "🧹 Cleaning up old containers..."
-docker stop rainlo-phpmyadmin-1 rainlo-adminer-1 2>/dev/null || true
-docker rm rainlo-phpmyadmin-1 rainlo-adminer-1 2>/dev/null || true
+# Final status check and cleanup
+echo "🔍 Final deployment verification..."
 
-### Restart Services ###
-if [ -f "docker-compose.yml" ]; then
-  echo "🔄 Restarting containers..."
-  docker-compose down --remove-orphans
-  docker-compose up -d --remove-orphans
-  docker-compose ps
-elif systemctl is-active --quiet nginx 2>/dev/null; then
-  echo "🔄 Reloading nginx..."
-  sudo systemctl reload nginx
+# Show container status
+if [ -n "$COMPOSE_FILE" ]; then
+    echo "📊 Container status:"
+    docker-compose -f "$COMPOSE_FILE" ps
+
+    # Test application health
+    echo "🏥 Testing application health..."
+    sleep 5
+    if docker-compose -f "$COMPOSE_FILE" exec -T app php artisan route:list >/dev/null 2>&1; then
+        echo "✅ Application is responding correctly"
+    else
+        echo "⚠️ Application may have issues. Check logs:"
+        docker-compose -f "$COMPOSE_FILE" logs app --tail=10
+    fi
 fi
 
-### Cleanup Old Backups ###
-if [ "$SKIP_BACKUP" = false ]; then
-  echo "🧹 Cleaning up old backups (keeping last 5)..."
-  ls -t /opt/rainlo-backup-* 2>/dev/null | tail -n +6 | xargs rm -rf 2>/dev/null || true
-fi
+# Clean up git stash if deployment was successful
+echo "🧹 Cleaning up git stash..."
+git stash drop 2>/dev/null || echo "No stash to clean up"
 
-echo "🎉 Deployment complete!"
+echo "🎉 Deployment completed successfully!"
+echo "📍 Backup location: $BACKUP_PATH"
+echo "🌐 Your application should now be live at https://api.rainlo.app"
+
+# Optional: Clean up old backups (keep last 5)
+echo "🧹 Cleaning up old backups..."
+ls -t /opt/rainlo-backup-* 2>/dev/null | tail -n +6 | xargs rm -rf 2>/dev/null || true
+
+echo "✅ All done!"
+echo ""
+echo "📋 Deployment Summary:"
+echo "   - Project path: $PROJECT_PATH"
+echo "   - Backup created: $BACKUP_PATH"
+echo "   - Docker compose file: $COMPOSE_FILE"
+echo "   - Database migrations: ✅ Completed"
+echo "   - Application caches: ✅ Rebuilt"
+echo ""
+echo "🔧 Useful commands:"
+echo "   - View logs: docker-compose -f $COMPOSE_FILE logs -f"
+echo "   - Check status: docker-compose -f $COMPOSE_FILE ps"
+echo "   - Access container: docker-compose -f $COMPOSE_FILE exec app bash"

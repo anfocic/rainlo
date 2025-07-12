@@ -3,7 +3,7 @@
 # Quick deployment script - no rebuild, just restart
 set -e
 
-PROJECT_PATH="/opt/rainlo"
+PROJECT_PATH="/home/andrej/rainlo"
 
 echo "🚀 Quick deployment (no rebuild)..."
 
