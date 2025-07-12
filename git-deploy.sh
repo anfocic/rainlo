@@ -58,10 +58,25 @@ if [ -f "artisan" ]; then
     # Start containers first
     if [ -f "docker-compose.yml" ]; then
         echo "Starting Docker containers..."
-        docker-compose up -d
+        docker-compose up -d --remove-orphans
 
-        # Wait a moment for containers to be ready
-        sleep 5
+        # Wait for database to be ready
+        echo "Waiting for database to be ready..."
+        timeout=60
+        while [ $timeout -gt 0 ]; do
+            if docker-compose exec -T db mysqladmin ping -h localhost --silent; then
+                echo "✅ Database is ready!"
+                break
+            fi
+            echo "⏳ Waiting for database... ($timeout seconds remaining)"
+            sleep 2
+            timeout=$((timeout-2))
+        done
+
+        if [ $timeout -le 0 ]; then
+            echo "❌ Database failed to start within 60 seconds"
+            exit 1
+        fi
 
         # Run Laravel commands inside the container
         echo "Running Laravel artisan commands..."
@@ -78,8 +93,8 @@ fi
 echo "🔄 Final restart of services..."
 if [ -f "docker-compose.yml" ]; then
     echo "Rebuilding and restarting containers..."
-    docker-compose down
-    docker-compose up -d --build
+    docker-compose down --remove-orphans
+    docker-compose up -d --build --remove-orphans
 
     # Show container status
     echo "Container status:"
