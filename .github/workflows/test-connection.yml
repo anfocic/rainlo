@@ -1,7 +1,7 @@
 name: Test Server Connection
 
 on:
-  workflow_dispatch:  # Manual trigger only
+  workflow_dispatch:  # Manual trigger
 
 jobs:
   test-connection:
