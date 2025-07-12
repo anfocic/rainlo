@@ -20,4 +20,4 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
 
           echo "👉 Starting SSH connection..."
-          ssh -vvv -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key -p "$PORT" "$USERNAME@$HOST" exit
+          ssh -4 -vvv -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key -p "$PORT" "$USERNAME@$HOST" exit
