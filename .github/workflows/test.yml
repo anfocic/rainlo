@@ -8,14 +8,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Test SSH connection with debug
-        run: |
-          ssh -vvv -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key -p ${{ secrets.PORT }} ${{ secrets.USERNAME }}@${{ secrets.HOST }} exit
+      - name: Setup SSH key and test connection
         env:
-          # If your private key is in a secret, write it to a file first
           DEPLOY_KEY: ${{ secrets.SSH_KEY }}
-        shell: bash
-        # Setup the SSH key file
+          HOST: ${{ secrets.HOST }}
+          USERNAME: ${{ secrets.USERNAME }}
+          PORT: ${{ secrets.PORT }}
         run: |
+          mkdir -p ~/.ssh
           echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+
+          echo "👉 Starting SSH connection..."
+          ssh -vvv -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key -p "$PORT" "$USERNAME@$HOST" exit
