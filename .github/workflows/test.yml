@@ -1,4 +1,4 @@
-name: Test SSH Connection
+name: Test SSH Connection port 22
 
 on:
   workflow_dispatch:
