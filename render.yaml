@@ -1,0 +1,71 @@
+services:
+  # Laravel API Web Service
+  - type: web
+    name: rainlo-api
+    runtime: docker
+    plan: starter  # Free tier
+    region: oregon  # Choose region closest to your users
+    branch: master  # Deploy from master branch
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: APP_NAME
+        value: "Rainlo API"
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_KEY
+        generateValue: true  # Render will generate this
+      - key: APP_URL
+        value: https://rainlo-api.onrender.com  # Will be your Render URL
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        fromDatabase:
+          name: rainlo-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: rainlo-db
+          property: port
+      - key: DB_DATABASE
+        fromDatabase:
+          name: rainlo-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: rainlo-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: rainlo-db
+          property: password
+      - key: CACHE_STORE
+        value: file
+      - key: SESSION_DRIVER
+        value: file
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: info
+      - key: BCRYPT_ROUNDS
+        value: "12"
+    buildCommand: |
+      composer install --no-dev --optimize-autoloader
+      php artisan config:cache
+      php artisan route:cache
+      php artisan view:cache
+    startCommand: |
+      php artisan migrate --force
+      php-fpm -D
+      nginx -g "daemon off;"
+
+  # PostgreSQL Database
+  - type: pgsql
+    name: rainlo-db
+    plan: starter  # Free tier - 90 days, then $7/month
+    databaseName: rainlo
+    user: rainlo
+    region: oregon  # Same region as web service

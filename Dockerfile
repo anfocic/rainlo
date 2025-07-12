@@ -1,4 +1,4 @@
-# Simple Laravel Production Dockerfile
+# Laravel Production Dockerfile for Render
 FROM php:8.2-fpm-alpine
 
 # Install system dependencies
@@ -7,13 +7,15 @@ RUN apk add --no-cache \
     curl \
     libpng-dev \
     libxml2-dev \
+    libpq-dev \
     zip \
     unzip \
-    mysql-client \
-    nginx
+    postgresql-client \
+    nginx \
+    supervisor
 
-# Install PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql bcmath gd
+# Install PHP extensions (including PostgreSQL support)
+RUN docker-php-ext-install pdo pdo_pgsql pdo_mysql bcmath gd
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -39,12 +41,37 @@ RUN composer run-script post-autoload-dump \
 # Copy nginx config
 COPY nginx.simple.conf /etc/nginx/nginx.conf
 
-# Simple startup script
+# Create supervisor configuration for managing multiple processes
+RUN echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'nodaemon=true' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'user=root' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo '' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo '[program:php-fpm]' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'command=php-fpm -F' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'autostart=true' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'redirect_stderr=true' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'stdout_logfile=/dev/stdout' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'stdout_logfile_maxbytes=0' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo '' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo '[program:nginx]' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'command=nginx -g "daemon off;"' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'autostart=true' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'redirect_stderr=true' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'stdout_logfile=/dev/stdout' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'stdout_logfile_maxbytes=0' >> /etc/supervisor/conf.d/supervisord.conf
+
+# Create startup script
 RUN echo '#!/bin/sh' > /start.sh \
+    && echo 'echo "Starting Rainlo API..."' >> /start.sh \
     && echo 'php artisan config:cache' >> /start.sh \
+    && echo 'php artisan route:cache' >> /start.sh \
+    && echo 'php artisan view:cache' >> /start.sh \
+    && echo 'echo "Running database migrations..."' >> /start.sh \
     && echo 'php artisan migrate --force' >> /start.sh \
-    && echo 'php-fpm -D' >> /start.sh \
-    && echo 'nginx -g "daemon off;"' >> /start.sh \
+    && echo 'echo "Starting services..."' >> /start.sh \
+    && echo 'exec supervisord -c /etc/supervisor/conf.d/supervisord.conf' >> /start.sh \
     && chmod +x /start.sh
 
 EXPOSE 80
