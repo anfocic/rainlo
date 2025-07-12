@@ -5,8 +5,8 @@
 
 set -e
 
-PROJECT_PATH="/home/andrej/rainlo"
-BACKUP_PATH="/home/andrej/rainlo-backup-$(date +%Y%m%d-%H%M%S)"
+PROJECT_PATH="/opt/rainlo"
+BACKUP_PATH="/opt/rainlo-backup-$(date +%Y%m%d-%H%M%S)"
 
 echo "🚀 Starting Git-based deployment..."
 
@@ -89,12 +89,17 @@ if [ -f "artisan" ]; then
     fi
 fi
 
+# Clean up any database admin containers
+echo "🧹 Cleaning up database admin containers..."
+docker stop rainlo-phpmyadmin-1 rainlo-adminer-1 2>/dev/null || true
+docker rm rainlo-phpmyadmin-1 rainlo-adminer-1 2>/dev/null || true
+
 # Final restart of services
 echo "🔄 Final restart of services..."
 if [ -f "docker-compose.yml" ]; then
-    echo "Rebuilding and restarting containers..."
+    echo "Restarting containers..."
     docker-compose down --remove-orphans
-    docker-compose up -d --build --remove-orphans
+    docker-compose up -d --remove-orphans
 
     # Show container status
     echo "Container status:"
@@ -109,6 +114,6 @@ echo "🌐 Your application should now be live!"
 
 # Optional: Clean up old backups (keep last 5)
 echo "🧹 Cleaning up old backups..."
-ls -t /home/andrej/rainlo-backup-* 2>/dev/null | tail -n +6 | xargs rm -rf 2>/dev/null || true
+ls -t /opt/rainlo-backup-* 2>/dev/null | tail -n +6 | xargs rm -rf 2>/dev/null || true
 
 echo "✅ All done!"
