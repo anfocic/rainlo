@@ -21,14 +21,18 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy application
+# Copy composer files first (for better caching)
+COPY composer.json composer.lock ./
+
+# Install dependencies (this layer will be cached if composer files don't change)
+RUN composer install --no-dev --optimize-autoloader --no-scripts
+
+# Copy application code
 COPY . .
 
-# Install dependencies
-RUN composer install --no-dev --optimize-autoloader
-
-# Set permissions
-RUN chown -R www-data:www-data /var/www/html \
+# Run composer scripts and set permissions
+RUN composer run-script post-autoload-dump \
+    && chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html/storage \
     && chmod -R 755 /var/www/html/bootstrap/cache
 
