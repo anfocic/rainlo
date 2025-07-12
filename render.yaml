@@ -15,7 +15,7 @@ services:
       - key: APP_DEBUG
         value: false
       - key: APP_KEY
-        generateValue: true  # Render will generate this
+        value: base64:2sz808BitecfFDChCP410Yu4nCOb62tnUDPzBPEyjSc=
       - key: APP_URL
         value: https://rainlo-api.onrender.com  # Will be your Render URL
       - key: DB_CONNECTION
@@ -63,7 +63,7 @@ services:
       nginx -g "daemon off;"
 
   # PostgreSQL Database
-  - type: pgsql
+  - type: postgresql
     name: rainlo-db
     plan: starter  # Free tier - 90 days, then $7/month
     databaseName: rainlo

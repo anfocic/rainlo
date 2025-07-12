@@ -15,10 +15,10 @@ class StatsService
     public function getExpenseStats(int $userId, array $filters = []): array
     {
         $cacheKey = "expense_stats_{$userId}_" . md5(serialize($filters));
-        
+
         return Cache::remember($cacheKey, 300, function () use ($userId, $filters) {
             $query = Expense::forUser($userId);
-            
+
             // Apply filters
             if (!empty($filters['date_from'])) {
                 $query->where('date', '>=', $filters['date_from']);
@@ -33,15 +33,15 @@ class StatsService
                 $query->isBusiness($filters['is_business']);
             }
 
-            // Single optimized query for all stats
+            // Single optimized query for all stats (PostgreSQL compatible)
             $stats = $query->selectRaw('
                 SUM(amount) as total_amount,
                 COUNT(*) as count,
                 AVG(amount) as average,
-                SUM(CASE WHEN is_business = 1 THEN amount ELSE 0 END) as business_expenses,
-                SUM(CASE WHEN is_business = 0 THEN amount ELSE 0 END) as personal_expenses,
-                SUM(CASE WHEN recurring = 1 THEN amount ELSE 0 END) as recurring_expenses,
-                SUM(CASE WHEN tax_deductible = 1 THEN amount ELSE 0 END) as tax_deductible_amount
+                SUM(CASE WHEN is_business = true THEN amount ELSE 0 END) as business_expenses,
+                SUM(CASE WHEN is_business = false THEN amount ELSE 0 END) as personal_expenses,
+                SUM(CASE WHEN recurring = true THEN amount ELSE 0 END) as recurring_expenses,
+                SUM(CASE WHEN tax_deductible = true THEN amount ELSE 0 END) as tax_deductible_amount
             ')->first();
 
             // Get top categories in separate optimized query
@@ -81,10 +81,10 @@ class StatsService
     public function getIncomeStats(int $userId, array $filters = []): array
     {
         $cacheKey = "income_stats_{$userId}_" . md5(serialize($filters));
-        
+
         return Cache::remember($cacheKey, 300, function () use ($userId, $filters) {
             $query = Income::forUser($userId);
-            
+
             // Apply filters
             if (!empty($filters['date_from'])) {
                 $query->where('date', '>=', $filters['date_from']);
@@ -99,14 +99,14 @@ class StatsService
                 $query->isBusiness($filters['is_business']);
             }
 
-            // Single optimized query for all stats
+            // Single optimized query for all stats (PostgreSQL compatible)
             $stats = $query->selectRaw('
                 SUM(amount) as total_amount,
                 COUNT(*) as count,
                 AVG(amount) as average,
-                SUM(CASE WHEN is_business = 1 THEN amount ELSE 0 END) as business_income,
-                SUM(CASE WHEN is_business = 0 THEN amount ELSE 0 END) as personal_income,
-                SUM(CASE WHEN recurring = 1 THEN amount ELSE 0 END) as recurring_income
+                SUM(CASE WHEN is_business = true THEN amount ELSE 0 END) as business_income,
+                SUM(CASE WHEN is_business = false THEN amount ELSE 0 END) as personal_income,
+                SUM(CASE WHEN recurring = true THEN amount ELSE 0 END) as recurring_income
             ')->first();
 
             // Get top categories in separate optimized query
