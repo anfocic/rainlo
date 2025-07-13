@@ -8,15 +8,13 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 abstract class Controller
 {
-    /**
-     * Return a successful response
-     */
+
     protected function success(
         mixed $data = null,
         string $message = 'Operation completed successfully',
@@ -70,14 +68,9 @@ abstract class Controller
         return $this->success(null, $message, Response::HTTP_OK);
     }
 
-    protected function noContent(): JsonResponse
-    {
-        return response()->json(null, Response::HTTP_NO_CONTENT);
-    }
-
     protected function error(
         string $message = 'An error occurred',
-        int $statusCode = ResponseAlias::HTTP_INTERNAL_SERVER_ERROR,
+        int $statusCode = Response::HTTP_INTERNAL_SERVER_ERROR,
         mixed $errors = null,
         array $meta = []
     ): JsonResponse {
@@ -99,51 +92,29 @@ abstract class Controller
         return response()->json($response, $statusCode);
     }
 
-    /**
-     * Return a validation error response
-     */
     protected function validationError(
         mixed $errors,
         string $message = 'Validation failed'
     ): JsonResponse {
-        return $this->error($message, ResponseAlias::HTTP_UNPROCESSABLE_ENTITY, $errors);
+        return $this->error($message, Response::HTTP_UNPROCESSABLE_ENTITY, $errors);
     }
 
-    /**
-     * Return a not found error response
-     */
     protected function notFound(
         string $message = 'Resource not found'
     ): JsonResponse {
-        return $this->error($message, ResponseAlias::HTTP_NOT_FOUND);
+        return $this->error($message, Response::HTTP_NOT_FOUND);
     }
 
-    /**
-     * Return an unauthorized error response
-     */
     protected function unauthorized(
         string $message = 'Unauthorized access'
     ): JsonResponse {
-        return $this->error($message, ResponseAlias::HTTP_UNAUTHORIZED);
+        return $this->error($message, Response::HTTP_UNAUTHORIZED);
     }
 
-    /**
-     * Return a forbidden error response
-     */
     protected function forbidden(
         string $message = 'Access forbidden'
     ): JsonResponse {
-        return $this->error($message, ResponseAlias::HTTP_FORBIDDEN);
-    }
-
-    /**
-     * Return a bad request error response
-     */
-    protected function badRequest(
-        string $message = 'Bad request',
-        mixed $errors = null
-    ): JsonResponse {
-        return $this->error($message, ResponseAlias::HTTP_BAD_REQUEST, $errors);
+        return $this->error($message, Response::HTTP_FORBIDDEN);
     }
 
     protected function paginated(
@@ -189,22 +160,6 @@ abstract class Controller
         return $this->successWithData($collection, $message, Response::HTTP_OK, $combinedMeta);
     }
 
-    protected function customResponse(
-        mixed $data = null,
-        string $message = 'Operation completed',
-        int $statusCode = Response::HTTP_OK,
-        array $headers = [],
-        array $meta = []
-    ): JsonResponse {
-        $response = $this->success($data, $message, $statusCode, $meta);
-
-        foreach ($headers as $key => $value) {
-            $response->header($key, $value);
-        }
-
-        return $response;
-    }
-
     protected function handleException(
         Throwable $exception,
         string $defaultMessage = 'An unexpected error occurred'
@@ -217,11 +172,11 @@ abstract class Controller
 
         // Return appropriate response based on exception type
         if ($exception instanceof ModelNotFoundException) {
-            return $this->notFound('Resource not found');
+            return $this->notFound();
         }
 
-        if ($exception instanceof \Illuminate\Validation\ValidationException) {
-            return $this->validationError($exception->errors(), 'Validation failed');
+        if ($exception instanceof ValidationException) {
+            return $this->validationError($exception->errors());
         }
 
         if ($exception instanceof AuthenticationException) {
@@ -245,26 +200,5 @@ abstract class Controller
         } catch (Throwable $exception) {
             return $this->handleException($exception);
         }
-    }
-
-    protected function getFilteredInput(array $allowedFields): array
-    {
-        return request()->only($allowedFields);
-    }
-
-    protected function withDebugInfo(JsonResponse $response, array $debugData = []): JsonResponse
-    {
-        if (config('app.debug') && !empty($debugData)) {
-            $data = $response->getData(true);
-            $data['debug'] = array_merge([
-                'query_count' => DB::getQueryLog() ? count(DB::getQueryLog()) : 0,
-                'memory_usage' => memory_get_usage(true),
-                'execution_time' => microtime(true) - LARAVEL_START,
-            ], $debugData);
-
-            $response->setData($data);
-        }
-
-        return $response;
     }
 }

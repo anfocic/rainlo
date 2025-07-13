@@ -2,155 +2,105 @@
 
 namespace App\Services;
 
-use App\Models\Expense;
-use App\Models\Income;
+use App\Models\Transaction;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 
 class StatsService
 {
-    /**
-     * Get optimized expense stats with single query
-     */
-    public function getExpenseStats(int $userId, array $filters = []): array
-    {
-        $cacheKey = "expense_stats_{$userId}_" . md5(serialize($filters));
+    private const CACHE_TTL = 3600; // 1 hour
 
-        return Cache::remember($cacheKey, 300, function () use ($userId, $filters) {
-            $query = Expense::forUser($userId);
-
-            // Apply filters
-            if (!empty($filters['date_from'])) {
-                $query->where('date', '>=', $filters['date_from']);
-            }
-            if (!empty($filters['date_to'])) {
-                $query->where('date', '<=', $filters['date_to']);
-            }
-            if (isset($filters['category'])) {
-                $query->category($filters['category']);
-            }
-            if (isset($filters['is_business'])) {
-                $query->isBusiness($filters['is_business']);
-            }
-
-            // Single optimized query for all stats (PostgreSQL compatible)
-            $stats = $query->selectRaw('
-                SUM(amount) as total_amount,
-                COUNT(*) as count,
-                AVG(amount) as average,
-                SUM(CASE WHEN is_business = true THEN amount ELSE 0 END) as business_expenses,
-                SUM(CASE WHEN is_business = false THEN amount ELSE 0 END) as personal_expenses,
-                SUM(CASE WHEN recurring = true THEN amount ELSE 0 END) as recurring_expenses,
-                SUM(CASE WHEN tax_deductible = true THEN amount ELSE 0 END) as tax_deductible_amount
-            ')->first();
-
-            // Get top categories in separate optimized query
-            $topCategories = Expense::forUser($userId)
-                ->selectRaw('category, SUM(amount) as total, COUNT(*) as count')
-                ->groupBy('category')
-                ->orderByDesc('total')
-                ->limit(5)
-                ->get();
-
-            // Get top vendors in separate optimized query
-            $topVendors = Expense::forUser($userId)
-                ->selectRaw('vendor, SUM(amount) as total, COUNT(*) as count')
-                ->whereNotNull('vendor')
-                ->groupBy('vendor')
-                ->orderByDesc('total')
-                ->limit(5)
-                ->get();
-
-            return [
-                'total_amount' => (float) $stats->total_amount ?: 0,
-                'count' => (int) $stats->count,
-                'average' => (float) $stats->average ?: 0,
-                'business_expenses' => (float) $stats->business_expenses ?: 0,
-                'personal_expenses' => (float) $stats->personal_expenses ?: 0,
-                'recurring_expenses' => (float) $stats->recurring_expenses ?: 0,
-                'tax_deductible_amount' => (float) $stats->tax_deductible_amount ?: 0,
-                'top_categories' => $topCategories,
-                'top_vendors' => $topVendors,
-            ];
-        });
-    }
-
-    /**
-     * Get optimized income stats with single query
-     */
-    public function getIncomeStats(int $userId, array $filters = []): array
-    {
-        $cacheKey = "income_stats_{$userId}_" . md5(serialize($filters));
-
-        return Cache::remember($cacheKey, 300, function () use ($userId, $filters) {
-            $query = Income::forUser($userId);
-
-            // Apply filters
-            if (!empty($filters['date_from'])) {
-                $query->where('date', '>=', $filters['date_from']);
-            }
-            if (!empty($filters['date_to'])) {
-                $query->where('date', '<=', $filters['date_to']);
-            }
-            if (isset($filters['category'])) {
-                $query->category($filters['category']);
-            }
-            if (isset($filters['is_business'])) {
-                $query->isBusiness($filters['is_business']);
-            }
-
-            // Single optimized query for all stats (PostgreSQL compatible)
-            $stats = $query->selectRaw('
-                SUM(amount) as total_amount,
-                COUNT(*) as count,
-                AVG(amount) as average,
-                SUM(CASE WHEN is_business = true THEN amount ELSE 0 END) as business_income,
-                SUM(CASE WHEN is_business = false THEN amount ELSE 0 END) as personal_income,
-                SUM(CASE WHEN recurring = true THEN amount ELSE 0 END) as recurring_income
-            ')->first();
-
-            // Get top categories in separate optimized query
-            $topCategories = Income::forUser($userId)
-                ->selectRaw('category, SUM(amount) as total, COUNT(*) as count')
-                ->groupBy('category')
-                ->orderByDesc('total')
-                ->limit(5)
-                ->get();
-
-            // Get top sources in separate optimized query
-            $topSources = Income::forUser($userId)
-                ->selectRaw('source, SUM(amount) as total, COUNT(*) as count')
-                ->whereNotNull('source')
-                ->groupBy('source')
-                ->orderByDesc('total')
-                ->limit(5)
-                ->get();
-
-            return [
-                'total_amount' => (float) $stats->total_amount ?: 0,
-                'count' => (int) $stats->count,
-                'average' => (float) $stats->average ?: 0,
-                'business_income' => (float) $stats->business_income ?: 0,
-                'personal_income' => (float) $stats->personal_income ?: 0,
-                'recurring_income' => (float) $stats->recurring_income ?: 0,
-                'top_categories' => $topCategories,
-                'top_sources' => $topSources,
-            ];
-        });
-    }
-
-    /**
-     * Clear stats cache for user
-     */
     public function clearStatsCache(int $userId): void
     {
-        $patterns = [
-            "expense_stats_{$userId}_*",
-            "income_stats_{$userId}_*"
+        // Clear specific cache keys that we know exist
+        $cacheKeys = [
+            "transaction_stats_{$userId}_" . md5(serialize([])), // Empty filters
+            "dashboard_summary_{$userId}",
+            "income_stats_{$userId}",
+            "expense_stats_{$userId}",
         ];
 
-        foreach ($patterns as $pattern) {
-            Cache::forget($pattern);
+        // Also clear recent transactions with common limits
+        for ($limit = 5; $limit <= 20; $limit += 5) {
+            $cacheKeys[] = "recent_transactions_{$userId}_{$limit}";
         }
+
+        foreach ($cacheKeys as $key) {
+            Cache::forget($key);
+        }
+    }
+
+    public function getTransactionStats(int $userId, array $filters = []): array
+    {
+        $cacheKey = "transaction_stats_{$userId}_" . md5(serialize($filters));
+
+        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($userId, $filters) {
+            $query = Transaction::forUser($userId);
+
+            // Apply filters
+            if (isset($filters['date_from']) || isset($filters['date_to'])) {
+                $query->dateRange($filters['date_from'] ?? null, $filters['date_to'] ?? null);
+            }
+            if (isset($filters['category'])) {
+                $query->category($filters['category']);
+            }
+            if (isset($filters['is_business'])) {
+                $query->isBusiness($filters['is_business']);
+            }
+            if (isset($filters['recurring'])) {
+                $query->recurring($filters['recurring']);
+            }
+
+            $incomeTotal = (clone $query)->where('type', 'income')->sum('amount');
+            $incomeCount = (clone $query)->where('type', 'income')->count();
+            $expenseTotal = (clone $query)->where('type', 'expense')->sum('amount');
+            $expenseCount = (clone $query)->where('type', 'expense')->count();
+
+            return [
+                'income' => [
+                    'total' => $incomeTotal,
+                    'count' => $incomeCount,
+                    'average' => $incomeCount > 0 ? $incomeTotal / $incomeCount : 0,
+                ],
+                'expense' => [
+                    'total' => $expenseTotal,
+                    'count' => $expenseCount,
+                    'average' => $expenseCount > 0 ? $expenseTotal / $expenseCount : 0,
+                ],
+                'net_total' => $incomeTotal - $expenseTotal,
+            ];
+        });
+    }
+
+    public function getDashboardSummary(int $userId): array
+    {
+        $cacheKey = "dashboard_summary_{$userId}";
+
+        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($userId) {
+            $totalIncome = Transaction::forUser($userId)->where('type', 'income')->sum('amount');
+            $totalExpenses = Transaction::forUser($userId)->where('type', 'expense')->sum('amount');
+
+            return [
+                'total_income' => $totalIncome,
+                'total_expenses' => $totalExpenses,
+                'net_income' => $totalIncome - $totalExpenses,
+                'income_count' => Transaction::forUser($userId)->where('type', 'income')->count(),
+                'expense_count' => Transaction::forUser($userId)->where('type', 'expense')->count(),
+                'business_income' => Transaction::forUser($userId)->where('type', 'income')->where('is_business', true)->sum('amount'),
+                'business_expenses' => Transaction::forUser($userId)->where('type', 'expense')->where('is_business', true)->sum('amount'),
+            ];
+        });
+    }
+
+    public function getRecentTransactions(int $userId, int $limit = 10): array
+    {
+        $cacheKey = "recent_transactions_{$userId}_{$limit}";
+
+        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($userId, $limit) {
+            return Transaction::forUser($userId)
+                ->latest('date')
+                ->limit($limit)
+                ->get()
+                ->toArray();
+        });
     }
 }

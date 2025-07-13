@@ -11,32 +11,34 @@ use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Password;
 
 class AuthController extends Controller
 {
     public function register(RegistrationRequest $request): JsonResponse
     {
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => $request->password, // FormRequest validation handles hashing via 'hashed' cast
-        ]);
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => $request->password,
+            ]);
 
-        event(new Registered($user));
+            event(new Registered($user));
 
-        $token = $user->createToken('auth-token')->plainTextToken;
+            $token = $user->createToken('auth-token')->plainTextToken;
 
-        return response()->json([
-            'message' => 'Registration successful',
-            'user' => $user,
-            'token' => $token,
-        ], 201);
+            return $this->created([
+                'user' => $user,
+                'token' => $token,
+            ], 'Registration successful');
+        });
     }
 
     public function login(LoginRequest $request): JsonResponse
     {
         return $this->executeWithErrorHandling(function () use ($request) {
-            $request->authenticate(); // Use the existing authenticate method from LoginRequest
+            $request->authenticate();
 
             $user = $request->user();
             $token = $user->createToken('auth-token')->plainTextToken;
@@ -59,19 +61,33 @@ class AuthController extends Controller
 
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
-        $request->sendResetLinkEmail($request->email);
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $status = $request->sendResetLinkEmail();
 
-        return response()->json([
-            'message' => 'Password reset email sent',
-        ]);
+            if ($status === Password::RESET_LINK_SENT) {
+                return $this->success(null, 'Password reset link sent to your email address');
+            }
+
+            return $this->error('Unable to send password reset link', 400);
+        });
     }
 
     public function resetPassword(ResetPasswordRequest $request): JsonResponse
     {
-        $request->resetPassword($request->email, $request->password);
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $status = $request->resetPassword();
 
-        return response()->json([
-            'message' => 'Password reset successful',
-        ]);
+            if ($status === Password::PASSWORD_RESET) {
+                return $this->success(null, 'Password has been reset successfully');
+            }
+
+            $message = match ($status) {
+                Password::INVALID_TOKEN => 'Invalid or expired reset token',
+                Password::INVALID_USER => 'We could not find a user with that email address',
+                default => 'Unable to reset password'
+            };
+
+            return $this->error($message, 400);
+        });
     }
 }

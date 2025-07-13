@@ -16,3 +16,10 @@ npm-debug.log
 yarn-error.log
 /auth.json
 /.idea
+/.scribe
+
+# IDE Helper files
+_ide_helper.php
+_ide_helper_models.php
+.phpstorm.meta.php
+!/INTERVIEW_PREP.md

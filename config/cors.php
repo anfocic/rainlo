@@ -22,6 +22,7 @@ return [
     'allowed_origins' => [
         'https://rainlo.app',
         'http://localhost:3000', // For local development
+        'http://localhost:3001', // For local development
         'http://localhost:5173', // For Vite dev server
     ],
 
