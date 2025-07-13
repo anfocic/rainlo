@@ -60,4 +60,59 @@ class TransactionRequest extends FormRequest
             'date.before_or_equal' => 'Date cannot be in the future.',
         ];
     }
+
+    public function bodyParameters(): array
+    {
+        return [
+            'type' => [
+                'description' => 'The type of transaction',
+                'example' => 'expense',
+                'enum' => ['income', 'expense'],
+            ],
+            'amount' => [
+                'description' => 'The transaction amount in euros',
+                'example' => 125.50,
+            ],
+            'description' => [
+                'description' => 'A description of the transaction',
+                'example' => 'Grocery shopping at SuperValu',
+            ],
+            'category' => [
+                'description' => 'The category of the transaction',
+                'example' => 'Food & Dining',
+            ],
+            'date' => [
+                'description' => 'The date of the transaction (YYYY-MM-DD)',
+                'example' => '2025-01-13',
+            ],
+            'is_business' => [
+                'description' => 'Whether this is a business-related transaction',
+                'example' => false,
+            ],
+            'recurring' => [
+                'description' => 'Whether this is a recurring transaction',
+                'example' => false,
+            ],
+            'tax_category' => [
+                'description' => 'Tax category for the transaction',
+                'example' => 'Standard Rate',
+            ],
+            'notes' => [
+                'description' => 'Additional notes about the transaction',
+                'example' => 'Weekly grocery shopping',
+            ],
+            'receipt_url' => [
+                'description' => 'URL to the receipt image or document',
+                'example' => 'https://example.com/receipts/receipt-123.pdf',
+            ],
+            'vendor' => [
+                'description' => 'The vendor/merchant name (for expenses only)',
+                'example' => 'SuperValu',
+            ],
+            'source' => [
+                'description' => 'The income source (for income only)',
+                'example' => 'Salary - Tech Company Ltd',
+            ],
+        ];
+    }
 }

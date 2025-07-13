@@ -1,0 +1,55 @@
+# Docker Logging Configuration for Rainlo API
+# This file can be used with docker-compose to set up centralized logging
+
+version: '3.8'
+
+# Example of how to add centralized logging with ELK stack or similar
+# Uncomment and modify as needed for production
+
+services:
+  # Elasticsearch for log storage
+  # elasticsearch:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:8.8.0
+  #   container_name: rainlo-elasticsearch
+  #   environment:
+  #     - discovery.type=single-node
+  #     - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+  #     - xpack.security.enabled=false
+  #   volumes:
+  #     - elasticsearch-data:/usr/share/elasticsearch/data
+  #   ports:
+  #     - "9200:9200"
+  #   networks:
+  #     - rainlo-network
+
+  # Kibana for log visualization
+  # kibana:
+  #   image: docker.elastic.co/kibana/kibana:8.8.0
+  #   container_name: rainlo-kibana
+  #   environment:
+  #     - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+  #   ports:
+  #     - "5601:5601"
+  #   networks:
+  #     - rainlo-network
+  #   depends_on:
+  #     - elasticsearch
+
+  # Logstash for log processing
+  # logstash:
+  #   image: docker.elastic.co/logstash/logstash:8.8.0
+  #   container_name: rainlo-logstash
+  #   volumes:
+  #     - ./docker/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+  #   ports:
+  #     - "5044:5044"
+  #   networks:
+  #     - rainlo-network
+  #   depends_on:
+  #     - elasticsearch
+
+# volumes:
+#   elasticsearch-data:
+
+# For simpler setups, you can use Fluentd or just rely on Docker's built-in logging
+# The current setup uses json-file driver with rotation which is good for most cases

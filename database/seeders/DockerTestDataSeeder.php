@@ -5,56 +5,118 @@ namespace Database\Seeders;
 use App\Models\User;
 use App\Models\Transaction;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
-class TestDataSeeder extends Seeder
+class DockerTestDataSeeder extends Seeder
 {
+    /**
+     * Simple faker replacement for Docker environment
+     */
+    private function randomElement(array $array)
+    {
+        return $array[array_rand($array)];
+    }
+
+    private function dateTimeBetween(Carbon $startDate, Carbon $endDate)
+    {
+        $startTimestamp = $startDate->timestamp;
+        $endTimestamp = $endDate->timestamp;
+        $randomTimestamp = rand($startTimestamp, $endTimestamp);
+        return Carbon::createFromTimestamp($randomTimestamp);
+    }
+
+    private function boolean($truePercentage = 50)
+    {
+        return rand(1, 100) <= $truePercentage;
+    }
+
+    private function sentence()
+    {
+        $words = ['Lorem', 'ipsum', 'dolor', 'sit', 'amet', 'consectetur', 'adipiscing', 'elit', 'sed', 'do', 'eiusmod', 'tempor', 'incididunt'];
+        $length = rand(4, 8);
+        $sentence = [];
+        for ($i = 0; $i < $length; $i++) {
+            $sentence[] = $this->randomElement($words);
+        }
+        return implode(' ', $sentence) . '.';
+    }
+
+    private function optional($probability = 0.5)
+    {
+        return rand(1, 100) <= ($probability * 100) ? $this->sentence() : null;
+    }
+
+    private function company()
+    {
+        $companies = ['TechCorp', 'DataSoft', 'CloudSystems', 'InnovateLab', 'DigitalWorks', 'SmartSolutions', 'NextGen Inc'];
+        return $this->randomElement($companies);
+    }
+
     public function run(): void
     {
-        $users = [
-            [
-                'name' => 'John Freelancer',
-                'email' => 'john@freelancer.com',
-                'password' => 'password',
-                'profile' => 'freelancer'
-            ],
-            [
-                'name' => 'Sarah Employee',
-                'email' => 'sarah@employee.com',
-                'password' => 'password',
-                'profile' => 'employee'
-            ],
-            [
-                'name' => 'Mike Business Owner',
-                'email' => 'mike@business.com',
-                'password' => 'password',
-                'profile' => 'business_owner'
-            ],
-            [
-                'name' => 'Lisa Investor',
-                'email' => 'lisa@investor.com',
-                'password' => 'password',
-                'profile' => 'investor'
-            ]
-        ];
+        // Use database transaction for better performance and rollback capability
+        DB::transaction(function () {
+            $this->command->info('Creating test users...');
 
-        foreach ($users as $userData) {
-            $user = User::create([
-                'name' => $userData['name'],
-                'email' => $userData['email'],
-                'password' => $userData['password'],
-                'email_verified_at' => now(),
-            ]);
+            $users = [
+                [
+                    'name' => 'John Freelancer',
+                    'email' => 'john@freelancer.com',
+                    'password' => 'password',
+                    'profile' => 'freelancer'
+                ],
+                [
+                    'name' => 'Sarah Employee',
+                    'email' => 'sarah@employee.com',
+                    'password' => 'password',
+                    'profile' => 'employee'
+                ],
+                [
+                    'name' => 'Mike Business Owner',
+                    'email' => 'mike@business.com',
+                    'password' => 'password',
+                    'profile' => 'business_owner'
+                ],
+                [
+                    'name' => 'Lisa Investor',
+                    'email' => 'lisa@investor.com',
+                    'password' => 'password',
+                    'profile' => 'investor'
+                ]
+            ];
 
-            // Generate data based on user profile
-            $this->generateUserData($user, $userData['profile']);
-        }
+            foreach ($users as $userData) {
+                // Check if user already exists
+                $existingUser = User::where('email', $userData['email'])->first();
+                if ($existingUser) {
+                    $this->command->warn("User {$userData['email']} already exists, skipping...");
+                    continue;
+                }
+
+                $user = User::create([
+                    'name' => $userData['name'],
+                    'email' => $userData['email'],
+                    'password' => $userData['password'],
+                    'email_verified_at' => now(),
+                ]);
+
+                $this->command->info("Created user: {$user->name}");
+
+                // Generate data based on user profile
+                $this->generateUserData($user, $userData['profile']);
+            }
+
+            $this->command->info('Test data seeding completed successfully!');
+        });
     }
 
     private function generateUserData(User $user, string $profile): void
     {
         $startDate = Carbon::now()->subMonths(12);
         $endDate = Carbon::now();
+
+        $this->command->info("Generating {$profile} data for {$user->name}...");
 
         switch ($profile) {
             case 'freelancer':
@@ -78,35 +140,41 @@ class TestDataSeeder extends Seeder
         $clients = ['TechCorp Inc', 'StartupXYZ', 'Digital Agency', 'E-commerce Co', 'Consulting Firm'];
         $projects = ['Website Development', 'Mobile App', 'API Integration', 'Database Design', 'UI/UX Design'];
 
+        $transactions = [];
         for ($i = 0; $i < 15; $i++) {
-            Transaction::create([
+            $transactions[] = $this->createTransactionArray([
                 'user_id' => $user->id,
                 'type' => 'income',
                 'amount' => rand(2000, 8000),
                 'description' => $projects[array_rand($projects)] . ' for ' . $clients[array_rand($clients)],
                 'category' => 'Freelance',
                 'source' => $clients[array_rand($clients)],
-                'date' => fake()->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
+                'date' => $this->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
                 'is_business' => true,
                 'recurring' => false,
                 'tax_category' => 'freelance',
-                'notes' => rand(1, 10) <= 3 ? fake()->sentence() : null,
+                'notes' => rand(1, 10) <= 3 ? $this->sentence() : null,
             ]);
         }
 
-        // Freelancer Expenses
+        // Batch insert for better performance
+        Transaction::insert($transactions);
+
+        // Generate expenses
         $this->generateFreelancerExpenses($user, $startDate, $endDate);
     }
 
     private function generateEmployeeData(User $user, Carbon $startDate, Carbon $endDate): void
     {
+        $transactions = [];
+
         // Employee Income - regular salary
         $currentDate = $startDate->copy();
         while ($currentDate <= $endDate) {
-            Transaction::create([
+            $transactions[] = $this->createTransactionArray([
                 'user_id' => $user->id,
                 'type' => 'income',
-                'amount' => 5500, // Monthly salary
+                'amount' => 5500,
                 'description' => 'Monthly Salary',
                 'category' => 'Salary',
                 'source' => 'ABC Corporation',
@@ -121,68 +189,72 @@ class TestDataSeeder extends Seeder
 
         // Occasional bonuses
         for ($i = 0; $i < 3; $i++) {
-            Transaction::create([
+            $transactions[] = $this->createTransactionArray([
                 'user_id' => $user->id,
                 'type' => 'income',
                 'amount' => rand(1000, 3000),
-                'description' => fake()->randomElement(['Performance Bonus', 'Holiday Bonus', 'Project Completion Bonus']),
+                'description' => $this->randomElement(['Performance Bonus', 'Holiday Bonus', 'Project Completion Bonus']),
                 'category' => 'Bonus',
                 'source' => 'ABC Corporation',
-                'date' => fake()->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
+                'date' => $this->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
                 'is_business' => false,
                 'recurring' => false,
                 'tax_category' => 'salary',
+                'notes' => 'Annual bonus payment',
             ]);
         }
 
+        Transaction::insert($transactions);
         $this->generateEmployeeExpenses($user, $startDate, $endDate);
     }
 
     private function generateBusinessOwnerData(User $user, Carbon $startDate, Carbon $endDate): void
     {
-        // Business Income - varied revenue streams
         $revenueStreams = ['Product Sales', 'Service Revenue', 'Consulting', 'Licensing', 'Partnerships'];
+        $transactions = [];
 
         for ($i = 0; $i < 25; $i++) {
-            Transaction::create([
+            $transactions[] = $this->createTransactionArray([
                 'user_id' => $user->id,
                 'type' => 'income',
                 'amount' => rand(3000, 15000),
-                'description' => fake()->randomElement($revenueStreams),
+                'description' => $this->randomElement($revenueStreams),
                 'category' => 'Business',
                 'source' => 'Business Operations',
-                'date' => fake()->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
+                'date' => $this->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
                 'is_business' => true,
-                'recurring' => fake()->boolean(30),
+                'recurring' => $this->boolean(30),
                 'tax_category' => 'business',
-                'notes' => fake()->optional(0.4)->sentence(),
+                'notes' => $this->optional(0.4),
             ]);
         }
 
+        Transaction::insert($transactions);
         $this->generateBusinessExpenses($user, $startDate, $endDate);
     }
 
     private function generateInvestorData(User $user, Carbon $startDate, Carbon $endDate): void
     {
-        // Investment Income
         $investments = ['Stock Dividends', 'Bond Interest', 'Real Estate', 'Crypto Gains', 'Mutual Funds'];
+        $transactions = [];
 
         for ($i = 0; $i < 20; $i++) {
-            Transaction::create([
+            $transactions[] = $this->createTransactionArray([
                 'user_id' => $user->id,
                 'type' => 'income',
                 'amount' => rand(500, 5000),
-                'description' => fake()->randomElement($investments),
+                'description' => $this->randomElement($investments),
                 'category' => 'Investment',
-                'source' => fake()->randomElement(['Brokerage Account', 'Real Estate', 'Crypto Exchange']),
-                'date' => fake()->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
+                'source' => $this->randomElement(['Brokerage Account', 'Real Estate', 'Crypto Exchange']),
+                'date' => $this->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
                 'is_business' => false,
-                'recurring' => fake()->boolean(40),
+                'recurring' => $this->boolean(40),
                 'tax_category' => 'investment',
-                'notes' => fake()->optional(0.2)->sentence(),
+                'notes' => $this->optional(0.2),
             ]);
         }
 
+        Transaction::insert($transactions);
         $this->generateInvestorExpenses($user, $startDate, $endDate);
     }
 
@@ -195,47 +267,48 @@ class TestDataSeeder extends Seeder
             ['category' => 'Marketing', 'items' => ['Website Hosting', 'Domain', 'Business Cards', 'Portfolio'], 'range' => [25, 300]],
         ];
 
+        $transactions = [];
         foreach ($businessExpenses as $expenseType) {
             for ($i = 0; $i < rand(2, 5); $i++) {
-                Transaction::create([
+                $transactions[] = $this->createTransactionArray([
                     'user_id' => $user->id,
                     'type' => 'expense',
                     'amount' => rand($expenseType['range'][0], $expenseType['range'][1]),
-                    'description' => fake()->randomElement($expenseType['items']),
+                    'description' => $this->randomElement($expenseType['items']),
                     'category' => $expenseType['category'],
-                    'vendor' => fake()->randomElement(['Amazon', 'Best Buy', 'Apple Store', 'Local Vendor']),
-                    'date' => fake()->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
+                    'vendor' => $this->randomElement(['Amazon', 'Best Buy', 'Apple Store', 'Local Vendor']),
+                    'date' => $this->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
                     'is_business' => true,
-                    'recurring' => fake()->boolean(20),
+                    'recurring' => $this->boolean(20),
                     'tax_category' => strtolower($expenseType['category']),
-                    'notes' => fake()->optional(0.3)->sentence(),
+                    'notes' => $this->optional(0.3),
                 ]);
             }
         }
 
-        // Personal expenses
+        Transaction::insert($transactions);
         $this->generatePersonalExpenses($user, $startDate, $endDate);
     }
 
     private function generateEmployeeExpenses(User $user, Carbon $startDate, Carbon $endDate): void
     {
-        // Work-related expenses
         $workExpenses = [
             ['category' => 'Transportation', 'items' => ['Gas', 'Parking', 'Public Transit'], 'range' => [20, 150]],
             ['category' => 'Meals', 'items' => ['Business Lunch', 'Client Dinner', 'Conference Meals'], 'range' => [15, 80]],
             ['category' => 'Professional Development', 'items' => ['Course', 'Certification', 'Conference'], 'range' => [100, 1000]],
         ];
 
+        $transactions = [];
         foreach ($workExpenses as $expenseType) {
             for ($i = 0; $i < rand(1, 3); $i++) {
-                Transaction::create([
+                $transactions[] = $this->createTransactionArray([
                     'user_id' => $user->id,
                     'type' => 'expense',
                     'amount' => rand($expenseType['range'][0], $expenseType['range'][1]),
-                    'description' => fake()->randomElement($expenseType['items']),
+                    'description' => $this->randomElement($expenseType['items']),
                     'category' => $expenseType['category'],
-                    'vendor' => fake()->company(),
-                    'date' => fake()->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
+                    'vendor' => $this->company(),
+                    'date' => $this->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
                     'is_business' => true,
                     'recurring' => false,
                     'tax_category' => strtolower(str_replace(' ', '_', $expenseType['category'])),
@@ -244,6 +317,7 @@ class TestDataSeeder extends Seeder
             }
         }
 
+        Transaction::insert($transactions);
         $this->generatePersonalExpenses($user, $startDate, $endDate);
     }
 
@@ -258,25 +332,27 @@ class TestDataSeeder extends Seeder
             ['category' => 'Professional Services', 'items' => ['Legal Fees', 'Accounting', 'Consulting'], 'range' => [500, 3000]],
         ];
 
+        $transactions = [];
         foreach ($businessExpenseTypes as $expenseType) {
             $count = isset($expenseType['recurring']) && $expenseType['recurring'] ? 12 : rand(2, 8);
             for ($i = 0; $i < $count; $i++) {
-                Transaction::create([
+                $transactions[] = $this->createTransactionArray([
                     'user_id' => $user->id,
                     'type' => 'expense',
                     'amount' => rand($expenseType['range'][0], $expenseType['range'][1]),
-                    'description' => fake()->randomElement($expenseType['items']),
+                    'description' => $this->randomElement($expenseType['items']),
                     'category' => $expenseType['category'],
-                    'vendor' => fake()->company(),
-                    'date' => fake()->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
+                    'vendor' => $this->company(),
+                    'date' => $this->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
                     'is_business' => true,
                     'recurring' => isset($expenseType['recurring']) ? $expenseType['recurring'] : false,
                     'tax_category' => strtolower(str_replace(' ', '_', $expenseType['category'])),
-                    'notes' => fake()->optional(0.4)->sentence(),
+                    'notes' => $this->optional(0.4),
                 ]);
             }
         }
 
+        Transaction::insert($transactions);
         $this->generatePersonalExpenses($user, $startDate, $endDate);
     }
 
@@ -289,24 +365,26 @@ class TestDataSeeder extends Seeder
             ['category' => 'Technology', 'items' => ['Trading Software', 'Market Data', 'Analysis Tools'], 'range' => [30, 300]],
         ];
 
+        $transactions = [];
         foreach ($investmentExpenses as $expenseType) {
             for ($i = 0; $i < rand(1, 4); $i++) {
-                Transaction::create([
+                $transactions[] = $this->createTransactionArray([
                     'user_id' => $user->id,
                     'type' => 'expense',
                     'amount' => rand($expenseType['range'][0], $expenseType['range'][1]),
-                    'description' => fake()->randomElement($expenseType['items']),
+                    'description' => $this->randomElement($expenseType['items']),
                     'category' => $expenseType['category'],
-                    'vendor' => fake()->randomElement(['Fidelity', 'Charles Schwab', 'E*TRADE', 'Local Advisor']),
-                    'date' => fake()->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
+                    'vendor' => $this->randomElement(['Fidelity', 'Charles Schwab', 'E*TRADE', 'Local Advisor']),
+                    'date' => $this->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
                     'is_business' => false,
-                    'recurring' => fake()->boolean(30),
+                    'recurring' => $this->boolean(30),
                     'tax_category' => strtolower(str_replace(' ', '_', $expenseType['category'])),
-                    'notes' => fake()->optional(0.2)->sentence(),
+                    'notes' => $this->optional(0.2),
                 ]);
             }
         }
 
+        Transaction::insert($transactions);
         $this->generatePersonalExpenses($user, $startDate, $endDate);
     }
 
@@ -322,24 +400,27 @@ class TestDataSeeder extends Seeder
             ['category' => 'Shopping', 'items' => ['Clothing', 'Electronics', 'Home Goods', 'Personal Care'], 'range' => [25, 500]],
         ];
 
+        $transactions = [];
         foreach ($personalExpenses as $expenseType) {
             $count = isset($expenseType['recurring']) && $expenseType['recurring'] ? rand(8, 12) : rand(3, 8);
             for ($i = 0; $i < $count; $i++) {
-                Transaction::create([
+                $transactions[] = $this->createTransactionArray([
                     'user_id' => $user->id,
                     'type' => 'expense',
                     'amount' => rand($expenseType['range'][0], $expenseType['range'][1]),
-                    'description' => fake()->randomElement($expenseType['items']),
+                    'description' => $this->randomElement($expenseType['items']),
                     'category' => $expenseType['category'],
                     'vendor' => $this->getVendorForCategory($expenseType['category']),
-                    'date' => fake()->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
+                    'date' => $this->dateTimeBetween($startDate, $endDate)->format('Y-m-d'),
                     'is_business' => false,
                     'recurring' => isset($expenseType['recurring']) ? $expenseType['recurring'] : false,
                     'tax_category' => 'personal',
-                    'notes' => fake()->optional(0.2)->sentence(),
+                    'notes' => $this->optional(0.2),
                 ]);
             }
         }
+
+        Transaction::insert($transactions);
     }
 
     private function getVendorForCategory(string $category): string
@@ -354,6 +435,30 @@ class TestDataSeeder extends Seeder
             'Shopping' => ['Amazon', 'Target', 'Best Buy', 'Macys'],
         ];
 
-        return fake()->randomElement($vendors[$category] ?? ['Generic Vendor']);
+        return $this->randomElement($vendors[$category] ?? ['Generic Vendor']);
+    }
+
+    /**
+     * Create a standardized transaction array with all required fields
+     */
+    private function createTransactionArray(array $data): array
+    {
+        return [
+            'user_id' => $data['user_id'],
+            'type' => $data['type'],
+            'amount' => $data['amount'],
+            'description' => $data['description'],
+            'category' => $data['category'] ?? null,
+            'date' => $data['date'],
+            'is_business' => $data['is_business'] ?? false,
+            'recurring' => $data['recurring'] ?? false,
+            'vendor' => $data['vendor'] ?? null,
+            'source' => $data['source'] ?? null,
+            'tax_category' => $data['tax_category'] ?? null,
+            'notes' => $data['notes'] ?? null,
+            'receipt_url' => $data['receipt_url'] ?? null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
     }
 }

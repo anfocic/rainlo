@@ -28,13 +28,27 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        // Debug: Check if user exists
+        $user = \App\Models\User::where('email', $this->email)->first();
+        if (!$user) {
+            \Log::info('User not found: ' . $this->email);
             RateLimiter::hit($this->throttleKey());
-
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
             ]);
         }
+
+        // Debug: Check password
+        if (!\Hash::check($this->password, $user->password)) {
+            \Log::info('Password check failed for: ' . $this->email);
+            RateLimiter::hit($this->throttleKey());
+            throw ValidationException::withMessages([
+                'email' => trans('auth.failed'),
+            ]);
+        }
+
+        // If we get here, manually log in the user
+        Auth::guard('web')->login($user, $this->boolean('remember'));
 
         RateLimiter::clear($this->throttleKey());
     }
