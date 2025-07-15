@@ -11,7 +11,7 @@ services:
       - APP_ENV=production
       - APP_DEBUG=false
     env_file:
-      - .env.production
+      - .env
     networks:
       - rainlo-network
     depends_on:

@@ -210,10 +210,15 @@ class DockerTestDataSeeder extends Seeder
 
     private function generateBusinessOwnerData(User $user, Carbon $startDate, Carbon $endDate): void
     {
-        $revenueStreams = ['Product Sales', 'Service Revenue', 'Consulting', 'Licensing', 'Partnerships'];
+        $revenueStreams = [
+            'Product Sales', 'Service Revenue', 'Consulting', 'Licensing', 'Partnerships',
+            'Software Sales', 'SaaS Revenue', 'Client Retainer', 'Project Payment', 'Maintenance Contract',
+            'Training Services', 'Support Services', 'Custom Development', 'API Usage Fees', 'Commission'
+        ];
         $transactions = [];
 
-        for ($i = 0; $i < 25; $i++) {
+        // Generate 60 income transactions for Mike to test infinite scroll
+        for ($i = 0; $i < 60; $i++) {
             $transactions[] = $this->createTransactionArray([
                 'user_id' => $user->id,
                 'type' => 'income',
@@ -326,15 +331,20 @@ class DockerTestDataSeeder extends Seeder
         $businessExpenseTypes = [
             ['category' => 'Office Rent', 'items' => ['Monthly Office Rent'], 'range' => [1500, 3000], 'recurring' => true],
             ['category' => 'Utilities', 'items' => ['Electricity', 'Internet', 'Phone'], 'range' => [100, 400], 'recurring' => true],
-            ['category' => 'Marketing', 'items' => ['Google Ads', 'Facebook Ads', 'Print Materials'], 'range' => [200, 2000]],
-            ['category' => 'Equipment', 'items' => ['Computers', 'Furniture', 'Machinery'], 'range' => [500, 5000]],
-            ['category' => 'Travel', 'items' => ['Business Trip', 'Client Visit', 'Conference'], 'range' => [300, 1500]],
-            ['category' => 'Professional Services', 'items' => ['Legal Fees', 'Accounting', 'Consulting'], 'range' => [500, 3000]],
+            ['category' => 'Marketing', 'items' => ['Google Ads', 'Facebook Ads', 'Print Materials', 'SEO Tools', 'Social Media Ads'], 'range' => [200, 2000]],
+            ['category' => 'Equipment', 'items' => ['Computers', 'Furniture', 'Machinery', 'Monitors', 'Printers'], 'range' => [500, 5000]],
+            ['category' => 'Travel', 'items' => ['Business Trip', 'Client Visit', 'Conference', 'Hotel', 'Flight'], 'range' => [300, 1500]],
+            ['category' => 'Professional Services', 'items' => ['Legal Fees', 'Accounting', 'Consulting', 'Tax Preparation'], 'range' => [500, 3000]],
+            ['category' => 'Software', 'items' => ['CRM Software', 'Project Management', 'Design Tools', 'Analytics'], 'range' => [50, 500]],
+            ['category' => 'Office Supplies', 'items' => ['Stationery', 'Paper', 'Ink', 'Cleaning Supplies'], 'range' => [25, 200]],
+            ['category' => 'Insurance', 'items' => ['Business Insurance', 'Liability Insurance', 'Equipment Insurance'], 'range' => [200, 800]],
+            ['category' => 'Meals & Entertainment', 'items' => ['Client Lunch', 'Team Dinner', 'Business Meeting'], 'range' => [50, 300]],
         ];
 
         $transactions = [];
         foreach ($businessExpenseTypes as $expenseType) {
-            $count = isset($expenseType['recurring']) && $expenseType['recurring'] ? 12 : rand(2, 8);
+            // Increase transaction count for Mike to get more data for infinite scroll
+            $count = isset($expenseType['recurring']) && $expenseType['recurring'] ? 12 : rand(4, 12);
             for ($i = 0; $i < $count; $i++) {
                 $transactions[] = $this->createTransactionArray([
                     'user_id' => $user->id,
